@@ -65,19 +65,47 @@ export default function CheckoutPage() {
 
   const description = "Pagamento do BLCKX7" // Descrição para a API
 
+  // Adicionar novos estados para o modal de orderbumps
+  const [showOrderBumps, setShowOrderBumps] = useState(false)
+  const [selectedOrderBumps, setSelectedOrderBumps] = useState({
+    investigacao: false,
+    localizacao: false,
+    relatorio: false,
+  })
+
+  // Modificar a função handleGeneratePix para mostrar o modal primeiro
   async function handleGeneratePix() {
     if (!customerEmail) {
       alert("Por favor, insira seu e-mail.")
       return
     }
 
+    // Mostrar modal de orderbumps primeiro
+    setShowOrderBumps(true)
+  }
+
+  // Nova função para processar o PIX após seleção dos orderbumps
+  async function processPixGeneration() {
+    setShowOrderBumps(false)
     setIsLoadingPix(true)
     setPixCode(null)
     setTransactionId(null)
     setPaymentStatus(null)
 
+    // Calcular valor total baseado nos orderbumps selecionados
+    let finalAmount = totalAmount
+    if (selectedOrderBumps.investigacao) {
+      finalAmount += 9.9
+    }
+    if (selectedOrderBumps.localizacao) {
+      finalAmount += 6.9
+    }
+    if (selectedOrderBumps.relatorio) {
+      finalAmount += 14.9
+    }
+
     const payload: GeneratePixPayload = {
-      amount: Math.round(totalAmount * 100),
+      amount: Math.round(finalAmount * 100),
       description,
       customer: {
         name: "Cliente Tinder",
@@ -86,8 +114,8 @@ export default function CheckoutPage() {
         email: customerEmail,
       },
       item: {
-        title: itemTitle, // Usando o nome do produto para a API
-        price: Math.round(itemPrice * 100),
+        title: itemTitle,
+        price: Math.round(finalAmount * 100),
         quantity: 1,
       },
       utm: "checkout-v0",
@@ -111,7 +139,7 @@ export default function CheckoutPage() {
 
       // Dispara o evento Purchase ao gerar o PIX
       if (typeof window !== "undefined" && (window as any).fbq) {
-        ;(window as any).fbq("track", "Purchase", { value: totalAmount, currency: "BRL" })
+        ;(window as any).fbq("track", "Purchase", { value: finalAmount, currency: "BRL" })
       }
     } catch (err) {
       console.error(err)
@@ -153,11 +181,11 @@ export default function CheckoutPage() {
     }
 
     if (transactionId && paymentStatus === "pending") {
-      intervalRef.current = setInterval(() => handleVerifyPix(transactionId), 5000)
+      intervalRef.current = setInterval(() => handleVerifyPix(transactionId), 4000)
     }
     if (paymentStatus === "completed") {
-      // Redireciona para a página de obrigado quando o pagamento é concluído
-      router.push("/thank-you")
+      // Redireciona diretamente para o link externo quando o pagamento é concluído
+      window.location.href = "https://premiumespiao.netlify.app"
       if (intervalRef.current) clearInterval(intervalRef.current)
     } else if (paymentStatus !== "pending" && intervalRef.current) {
       clearInterval(intervalRef.current)
@@ -281,7 +309,7 @@ export default function CheckoutPage() {
             ) : (
               <div className="text-center text-muted-foreground text-sm">
                 <div className="w-24 h-24 bg-muted/30 rounded-md mx-auto mb-2" />
-                Preencha seu e-mail e clique em “Gerar PIX” para continuar
+                Preencha seu e-mail e clique em "Gerar PIX" para continuar
               </div>
             )}
           </div>
@@ -299,9 +327,10 @@ export default function CheckoutPage() {
               value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
               required
+              disabled={pixCode !== null} // Bloqueia o campo quando o PIX é gerado
               className={`bg-white border-border text-black mt-1 placeholder:text-gray-600 ${
                 !customerEmail && !pixCode && paymentStatus !== "completed" ? "border-red-500" : ""
-              }`}
+              } ${pixCode !== null ? "opacity-50 cursor-not-allowed" : ""}`} // Adiciona estilo visual quando bloqueado
             />
             <p className="text-xs text-muted-foreground mt-1">
               Precisamos apenas do seu e-mail para enviar o relatório completo de forma segura e anônima
@@ -311,9 +340,11 @@ export default function CheckoutPage() {
           {/* BOTÃO PRINCIPAL */}
           <Button
             onClick={handleGeneratePix}
-            disabled={isLoadingPix || paymentStatus === "completed" || !customerEmail}
+            disabled={isLoadingPix || paymentStatus === "completed" || !customerEmail || pixCode !== null} // Adiciona pixCode !== null
             className={`w-full py-6 text-lg font-bold bg-gradient-to-r from-[#25D366] to-[#15FF00] hover:from-[#25D366]/90 hover:to-[#15FF00]/90 text-white ${
-              !isLoadingPix && paymentStatus !== "completed" && customerEmail ? "animate-pulse-green" : ""
+              !isLoadingPix && paymentStatus !== "completed" && customerEmail && pixCode === null
+                ? "animate-pulse-green"
+                : ""
             } text-black`}
           >
             {isLoadingPix ? (
@@ -322,6 +353,8 @@ export default function CheckoutPage() {
               </>
             ) : paymentStatus === "completed" ? (
               "Pagamento Concluído"
+            ) : pixCode !== null ? (
+              "Realize o pagamento"
             ) : (
               `Gerar PIX - R$ ${totalAmount.toFixed(2).replace(".", ",")}`
             )}
@@ -343,11 +376,11 @@ export default function CheckoutPage() {
             </h2>
             <TestimonialCard
               name="Mariana M."
-              text="Eu sempre desconfiei, mas ele era bom de papo… dizia q apagava as conversas pq ‘não queria briga’. Quando vi o relatório, veio tudo à tona. Msg com ex, coraçãozinho, chamada de vídeo… sério, foi a prova q eu precisava pra dar um basta"
+              text="Eu sempre desconfiei, mas ele era bom de papo… dizia q apagava as conversas pq 'não queria briga'. Quando vi o relatório, veio tudo à tona. Msg com ex, coraçãozinho, chamada de vídeo… sério, foi a prova q eu precisava pra dar um basta"
             />
             <TestimonialCard
               name="Larissa S."
-              text="Desconfiei por semanas, mas ele era do tipo ‘bom de lábia’. O relatório mostrou tudo: mensagens antigas, conversas que ele jurava que nunca existiram. Foi a melhor coisa que fiz. Abri meus olhos antes que fosse tarde demais."
+              text="Desconfiei por semanas, mas ele era do tipo 'bom de lábia'. O relatório mostrou tudo: mensagens antigas, conversas que ele jurava que nunca existiram. Foi a melhor coisa que fiz. Abri meus olhos antes que fosse tarde demais."
             />
             <TestimonialCard
               name="Juliana R."
@@ -356,6 +389,200 @@ export default function CheckoutPage() {
           </div>
         </CardContent>
       </Card>
+      {showOrderBumps && (
+        <div className="fixed inset-0 bg-black/80 flex items-start justify-center p-2 z-50 overflow-y-auto">
+          <Card className="w-full max-w-md bg-card text-card-foreground mt-4 mb-4">
+            <CardContent className="p-4 space-y-4">
+              <div className="text-center">
+                <h2 className="text-xl font-bold text-[#15FF00] text-glow-green mb-1">🎯 OFERTA ESPECIAL!</h2>
+                <p className="text-muted-foreground text-xs">Aproveite essas ofertas exclusivas antes de finalizar</p>
+              </div>
+
+              {/* Primeiro OrderBump */}
+              <div className="border border-border rounded-lg p-3 space-y-2">
+                <div className="flex items-start space-x-2">
+                  <input
+                    type="checkbox"
+                    id="investigacao"
+                    checked={selectedOrderBumps.investigacao}
+                    onChange={(e) =>
+                      setSelectedOrderBumps((prev) => ({
+                        ...prev,
+                        investigacao: e.target.checked,
+                      }))
+                    }
+                    className="mt-1 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <label htmlFor="investigacao" className="cursor-pointer">
+                      <h3 className="font-bold text-foreground text-sm leading-tight">
+                        ✅ 2 Investigações pelo preço de 1
+                      </h3>
+                      <p className="text-muted-foreground text-xs mt-1 leading-tight">
+                        2 relatórios completos. Perfeito para investigar mais pessoas.
+                      </p>
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        <span className="text-muted-foreground line-through text-xs">R$ 19,90</span>
+                        <span className="text-green-500 font-bold text-lg">R$ 9,90</span>
+                        <span className="bg-red-500 text-white text-xs px-1 py-0.5 rounded">50% OFF</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Segundo OrderBump */}
+              <div className="border border-border rounded-lg p-3 space-y-2">
+                <div className="flex items-start space-x-2">
+                  <input
+                    type="checkbox"
+                    id="localizacao"
+                    checked={selectedOrderBumps.localizacao}
+                    onChange={(e) =>
+                      setSelectedOrderBumps((prev) => ({
+                        ...prev,
+                        localizacao: e.target.checked,
+                      }))
+                    }
+                    className="mt-1 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <label htmlFor="localizacao" className="cursor-pointer">
+                      <h3 className="font-bold text-foreground text-sm leading-tight">📍 Localização 24H</h3>
+                      <p className="text-muted-foreground text-xs mt-1 leading-tight">
+                        Todos os lugares visitados em tempo real por 24 horas.
+                      </p>
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        <span className="text-muted-foreground line-through text-xs">R$ 14,90</span>
+                        <span className="text-green-500 font-bold text-lg">R$ 6,90</span>
+                        <span className="bg-red-500 text-white text-xs px-1 py-0.5 rounded">53% OFF</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Terceiro OrderBump */}
+              <div className="border border-border rounded-lg p-3 space-y-2">
+                <div className="flex items-start space-x-2">
+                  <input
+                    type="checkbox"
+                    id="relatorio"
+                    checked={selectedOrderBumps.relatorio}
+                    onChange={(e) =>
+                      setSelectedOrderBumps((prev) => ({
+                        ...prev,
+                        relatorio: e.target.checked,
+                      }))
+                    }
+                    className="mt-1 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded flex-shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <label htmlFor="relatorio" className="cursor-pointer">
+                      <h3 className="font-bold text-foreground text-sm leading-tight">📊 Relatório Semanal</h3>
+                      <p className="text-muted-foreground text-xs mt-1 leading-tight">
+                        Atualizações importantes toda semana de forma anônima.
+                      </p>
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        <span className="text-muted-foreground line-through text-xs">R$ 29,90</span>
+                        <span className="text-green-500 font-bold text-lg">R$ 14,90</span>
+                        <span className="bg-red-500 text-white text-xs px-1 py-0.5 rounded">50% OFF</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resumo do pedido - Compacto */}
+              <div className="bg-muted/20 rounded-lg p-3">
+                <h4 className="font-bold text-foreground mb-2 text-sm">Resumo:</h4>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span>WHATS ESPIÃO</span>
+                    <span>R$ {totalAmount.toFixed(2).replace(".", ",")}</span>
+                  </div>
+                  {selectedOrderBumps.investigacao && (
+                    <div className="flex justify-between text-green-500">
+                      <span>+ 2 Investigações</span>
+                      <span>R$ 9,90</span>
+                    </div>
+                  )}
+                  {selectedOrderBumps.localizacao && (
+                    <div className="flex justify-between text-green-500">
+                      <span>+ Localização 24H</span>
+                      <span>R$ 6,90</span>
+                    </div>
+                  )}
+                  {selectedOrderBumps.relatorio && (
+                    <div className="flex justify-between text-green-500">
+                      <span>+ Relatório Semanal</span>
+                      <span>R$ 14,90</span>
+                    </div>
+                  )}
+                  <hr className="border-border" />
+                  <div className="flex justify-between font-bold text-sm">
+                    <span>Total:</span>
+                    <span className="text-green-500">
+                      R${" "}
+                      {(
+                        totalAmount +
+                        (selectedOrderBumps.investigacao ? 9.9 : 0) +
+                        (selectedOrderBumps.localizacao ? 6.9 : 0) +
+                        (selectedOrderBumps.relatorio ? 14.9 : 0)
+                      )
+                        .toFixed(2)
+                        .replace(".", ",")}
+                    </span>
+                  </div>
+                  {/* Seção de economia compacta */}
+                  {(selectedOrderBumps.investigacao ||
+                    selectedOrderBumps.localizacao ||
+                    selectedOrderBumps.relatorio) && (
+                    <>
+                      <hr className="border-border" />
+                      <div className="flex justify-between text-yellow-500 font-semibold text-xs">
+                        <span>💰 Economia:</span>
+                        <span>
+                          R${" "}
+                          {(
+                            (selectedOrderBumps.investigacao ? 10.0 : 0) +
+                            (selectedOrderBumps.localizacao ? 8.0 : 0) +
+                            (selectedOrderBumps.relatorio ? 15.0 : 0)
+                          )
+                            .toFixed(2)
+                            .replace(".", ",")}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Botões compactos */}
+              <div className="space-y-2">
+                <Button
+                  onClick={processPixGeneration}
+                  className="w-full py-3 text-sm font-bold bg-gradient-to-r from-[#25D366] to-[#15FF00] hover:from-[#25D366]/90 hover:to-[#15FF00]/90 text-black animate-pulse-green"
+                >
+                  🚀 CONTINUAR COM OFERTAS
+                </Button>
+                <Button
+                  onClick={() => {
+                    setSelectedOrderBumps({ investigacao: false, localizacao: false, relatorio: false })
+                    processPixGeneration()
+                  }}
+                  variant="outline"
+                  className="w-full py-2 text-xs border-border text-muted-foreground hover:text-foreground"
+                >
+                  Não, continuar apenas com relatório completo
+                </Button>
+              </div>
+
+              <p className="text-center text-xs text-muted-foreground">⚡ Oferta válida apenas nesta tela!</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
