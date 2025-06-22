@@ -138,9 +138,11 @@ export default function CheckoutPage() {
       setPaymentStatus("pending")
 
       // Dispara o evento Purchase ao gerar o PIX
-      if (typeof window !== "undefined" && (window as any).fbq) {
-        ;(window as any).fbq("track", "Purchase", { value: finalAmount, currency: "BRL" })
-      }
+      // Remover estas linhas:
+      // Dispara o evento Purchase ao gerar o PIX
+      // if (typeof window !== "undefined" && (window as any).fbq) {
+      //   ;(window as any).fbq("track", "Purchase", { value: finalAmount, currency: "BRL" })
+      // }
     } catch (err) {
       console.error(err)
       alert("Erro ao gerar PIX.")
