@@ -161,12 +161,14 @@ export default function CheckoutPage() {
       setTransactionId(data.transactionId)
       setPaymentStatus("pending")
 
-      // Dispara o evento Purchase ao gerar o PIX
-      // Remover estas linhas:
-      // Dispara o evento Purchase ao gerar o PIX
-      // if (typeof window !== "undefined" && (window as any).fbq) {
-      //   ;(window as any).fbq("track", "Purchase", { value: finalAmount, currency: "BRL" })
-      // }
+      // Dispara evento AddToCart
+      if (typeof window !== "undefined" && (window as any).fbq) {
+        ;(window as any).fbq("track", "AddToCart", {
+          value: finalAmount,
+          currency: "BRL",
+          content_name: "WHATS ESPIÃO",
+        })
+      }
     } catch (err) {
       console.error(err)
       alert("Erro ao gerar PIX.")
@@ -190,7 +192,19 @@ export default function CheckoutPage() {
 
       // Dispara o evento Purchase ao confirmar o pagamento como concluído
       if (data.status === "completed" && typeof window !== "undefined" && (window as any).fbq) {
-        ;(window as any).fbq("track", "Purchase", { value: totalAmount, currency: "BRL" })
+        // Calcular valor total incluindo orderbumps
+        const finalAmount =
+          totalAmount +
+          (selectedOrderBumps.investigacao ? 9.9 : 0) +
+          (selectedOrderBumps.localizacao ? 6.9 : 0) +
+          (selectedOrderBumps.relatorio ? 14.9 : 0)
+        ;(window as any).fbq("track", "Purchase", {
+          value: finalAmount,
+          currency: "BRL",
+          content_name: "WHATS ESPIÃO",
+          content_ids: ["whats-espiao"],
+          content_type: "product",
+        })
       }
     } catch (err) {
       console.error(err)
@@ -851,9 +865,9 @@ export default function CheckoutPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <label htmlFor="localizacao" className="cursor-pointer">
-                      <h3 className="font-bold text-foreground text-lg leading-tight">📍 Localização 24H</h3>
+                      <h3 className="font-bold text-foreground text-lg leading-tight">📍 Whats Premium</h3>
                       <p className="text-muted-foreground text-sm mt-1 leading-tight">
-                        Todos os lugares visitados em tempo real por 24 horas.
+                        Tenha o seu e o dele no mesmo celular! por que não?
                       </p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <span className="text-muted-foreground line-through text-xs">R$ 14,90</span>
@@ -1030,10 +1044,10 @@ export default function CheckoutPage() {
                   <p className="text-sm text-muted-foreground">
                     Análise completa de redes sociais + histórico de 3 meses
                   </p>
-                  <div className="flex items-center justify-center mt-2">
-                    <span className="text-xs text-yellow-300 mr-2"></span>
+                  <div className="flex items-center justify-center mt-2 gap-3">
+                    <span className="text-xl font-bold text-muted-foreground line-through">R$9,90</span>
                     <span className="text-2xl font-extrabold text-[#15FF00] bg-green-400/20 px-3 py-1 rounded-full border border-green-400/50 animate-pulse">
-                      R$9,90
+                      GRÁTIS
                     </span>
                   </div>
                 </div>
