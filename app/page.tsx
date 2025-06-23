@@ -56,6 +56,7 @@ export default function CheckoutPage() {
   const [isLoadingPix, setIsLoadingPix] = useState(false)
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const bonusTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const [customerEmail, setCustomerEmail] = useState("")
 
@@ -73,6 +74,27 @@ export default function CheckoutPage() {
     relatorio: false,
   })
 
+  // Adicionar um novo estado para controlar o modal de instruções:
+  const [showInstructions, setShowInstructions] = useState(false)
+
+  // Estado para o countdown de escassez
+  const [timeLeft, setTimeLeft] = useState(942) // 15 minutos e 42 segundos
+  // Remover o estado isUrgent pois não será mais usado
+  // const [isUrgent, setIsUrgent] = useState(false)
+
+  const [currentTestimonial, setCurrentTestimonial] = useState(0)
+
+  // Adicionar um novo estado para controlar o pop-up de bônus após os outros estados:
+  const [showBonusPopup, setShowBonusPopup] = useState(false)
+  const [bonusTimeLeft, setBonusTimeLeft] = useState(300) // 5 minutos em segundos
+  const [orderBumpTimeLeft, setOrderBumpTimeLeft] = useState(180) // 3 minutos em segundos
+
+  // Adicionar após os outros estados
+  const [bonusPopupShown, setBonusPopupShown] = useState(false)
+  const [bonusPopupShownAfterCopy, setBonusPopupShownAfterCopy] = useState(false)
+
+  const [pixExpirationTime, setPixExpirationTime] = useState(600) // 10 minutos em segundos
+
   // Modificar a função handleGeneratePix para mostrar o modal primeiro
   async function handleGeneratePix() {
     if (!customerEmail) {
@@ -81,6 +103,7 @@ export default function CheckoutPage() {
     }
 
     // Mostrar modal de orderbumps primeiro
+    setOrderBumpTimeLeft(180) // Reset para 3 minutos
     setShowOrderBumps(true)
   }
 
@@ -91,6 +114,7 @@ export default function CheckoutPage() {
     setPixCode(null)
     setTransactionId(null)
     setPaymentStatus(null)
+    setPixExpirationTime(600) // Reset para 10 minutos
 
     // Calcular valor total baseado nos orderbumps selecionados
     let finalAmount = totalAmount
@@ -197,8 +221,243 @@ export default function CheckoutPage() {
     }
   }, [transactionId, paymentStatus, router])
 
+  // Simplificar o useEffect do countdown removendo a lógica de urgência
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
+  // Função para iniciar o timer do pop-up de bônus
+  const startBonusTimer = () => {
+    if (bonusTimerRef.current) {
+      clearTimeout(bonusTimerRef.current)
+    }
+
+    bonusTimerRef.current = setTimeout(() => {
+      // Verificar se o usuário ainda está na página e não está com o modal de instruções aberto
+      if (document.visibilityState === "visible" && !showInstructions && !bonusPopupShown) {
+        setBonusTimeLeft(300) // Reset para 5 minutos
+        setShowBonusPopup(true)
+        setBonusPopupShown(true) // Marcar que o pop-up foi mostrado
+      }
+    }, 12000) // 12 segundos
+  }
+
+  // Função para parar o timer do pop-up de bônus
+  const stopBonusTimer = () => {
+    if (bonusTimerRef.current) {
+      clearTimeout(bonusTimerRef.current)
+      bonusTimerRef.current = null
+    }
+  }
+
+  // Pop-up de bônus com controle de visibilidade da página
+  useEffect(() => {
+    if (pixCode && paymentStatus === "pending" && !showInstructions && !bonusPopupShown && !bonusPopupShownAfterCopy) {
+      // Iniciar o timer apenas se a página estiver visível
+      if (document.visibilityState === "visible") {
+        startBonusTimer()
+      }
+
+      // Listener para mudanças de visibilidade da página
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === "visible") {
+          // Página ficou visível - iniciar timer se não estiver com modal de instruções aberto
+          if (!showInstructions && !showBonusPopup && !bonusPopupShown && !bonusPopupShownAfterCopy) {
+            startBonusTimer()
+          }
+        } else {
+          // Página ficou oculta - parar timer
+          stopBonusTimer()
+        }
+      }
+
+      document.addEventListener("visibilitychange", handleVisibilityChange)
+
+      return () => {
+        document.removeEventListener("visibilitychange", handleVisibilityChange)
+        stopBonusTimer()
+      }
+    } else {
+      stopBonusTimer()
+    }
+  }, [pixCode, paymentStatus, showInstructions, showBonusPopup, bonusPopupShown, bonusPopupShownAfterCopy])
+
+  // Countdown do pop-up de bônus
+  useEffect(() => {
+    if (showBonusPopup && bonusTimeLeft > 0) {
+      const timer = setInterval(() => {
+        setBonusTimeLeft((prev) => {
+          if (prev <= 1) {
+            setShowBonusPopup(false) // Fecha o pop-up quando o tempo acaba
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+
+      return () => clearInterval(timer)
+    }
+  }, [showBonusPopup, bonusTimeLeft])
+
+  // Countdown do orderbump
+  useEffect(() => {
+    if (showOrderBumps && orderBumpTimeLeft > 0) {
+      const timer = setInterval(() => {
+        setOrderBumpTimeLeft((prev) => {
+          if (prev <= 1) {
+            setShowOrderBumps(false) // Fecha o modal quando o tempo acaba
+            processPixGeneration() // Continua sem orderbumps
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+
+      return () => clearInterval(timer)
+    }
+  }, [showOrderBumps, orderBumpTimeLeft])
+
+  // Countdown do PIX (10 minutos)
+  useEffect(() => {
+    if (pixCode && pixExpirationTime > 0) {
+      const timer = setInterval(() => {
+        setPixExpirationTime((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+
+      return () => clearInterval(timer)
+    }
+  }, [pixCode, pixExpirationTime])
+
+  // Função para formatar o tempo
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
+
+  // Função para formatar o tempo do bônus
+  const formatBonusTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
+  // Função para formatar o tempo do orderbump
+  const formatOrderBumpTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
+  // Função para formatar o tempo do PIX
+  const formatPixTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
+  // Função para calcular ofertas disponíveis da primeira oferta (mais rápida)
+  const getAvailableOffersInvestigacao = () => {
+    const totalTime = 180 // 3 minutos
+    const timeElapsed = totalTime - orderBumpTimeLeft
+
+    // Lógica de diminuição rápida no início e lenta no final
+    let offersReduction = 0
+
+    // Diminui de 9 para 4 ofertas (5 ofertas reduzidas)
+    if (timeElapsed <= 30) {
+      // Primeiros 30 segundos: diminui a cada 6 segundos (5-8 segundos)
+      offersReduction = Math.floor(timeElapsed / 6)
+    } else {
+      // Depois que chega em 4/10: diminui a cada 10 segundos
+      const fastReduction = Math.floor(30 / 6) // 5 ofertas nos primeiros 30s
+      const slowTimeElapsed = timeElapsed - 30
+      const slowReduction = Math.floor(slowTimeElapsed / 10)
+      offersReduction = fastReduction + slowReduction
+    }
+
+    const availableOffers = Math.max(1, 9 - offersReduction)
+    return availableOffers
+  }
+
+  // Função para calcular ofertas disponíveis da segunda oferta (ritmo normal)
+  const getAvailableOffersLocalizacao = () => {
+    const totalTime = 180 // 3 minutos
+    const timeElapsed = totalTime - orderBumpTimeLeft
+
+    // Lógica de diminuição rápida no início e lenta no final
+    let offersReduction = 0
+
+    // Diminui de 9 para 4 ofertas (5 ofertas reduzidas)
+    if (timeElapsed <= 50) {
+      // Primeiros 50 segundos: diminui a cada 10 segundos
+      offersReduction = Math.floor(timeElapsed / 10)
+    } else {
+      // Depois que chega em 4/10: diminui a cada 25 segundos
+      const fastReduction = Math.floor(50 / 10) // 5 ofertas nos primeiros 50s
+      const slowTimeElapsed = timeElapsed - 50
+      const slowReduction = Math.floor(slowTimeElapsed / 25)
+      offersReduction = fastReduction + slowReduction
+    }
+
+    const availableOffers = Math.max(1, 9 - offersReduction)
+    return availableOffers
+  }
+
+  // Função para calcular ofertas disponíveis da terceira oferta (ritmo normal)
+  const getAvailableOffersRelatorio = () => {
+    const totalTime = 180 // 3 minutos
+    const timeElapsed = totalTime - orderBumpTimeLeft
+
+    // Lógica de diminuição rápida no início e lenta no final
+    let offersReduction = 0
+
+    // Diminui de 9 para 4 ofertas (5 ofertas reduzidas)
+    if (timeElapsed <= 45) {
+      // Primeiros 45 segundos: diminui a cada 9 segundos (8-10 segundos)
+      offersReduction = Math.floor(timeElapsed / 9)
+    } else {
+      // Depois que chega em 4/10: diminui a cada 15 segundos
+      const fastReduction = Math.floor(45 / 9) // 5 ofertas nos primeiros 45s
+      const slowTimeElapsed = timeElapsed - 45
+      const slowReduction = Math.floor(slowTimeElapsed / 15)
+      offersReduction = fastReduction + slowReduction
+    }
+
+    const availableOffers = Math.max(1, 9 - offersReduction)
+    return availableOffers
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative z-10">
+    <div className="min-h-screen flex items-center justify-center p-4 relative z-10 pt-20">
+      {/* BARRA DE ESCASSEZ */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border p-3 text-center">
+        <div className="flex flex-col items-center justify-center">
+          <p className="text-base font-semibold text-[#15FF00] text-glow-green flex items-center justify-center">
+            <Clock className="h-5 w-5 mr-2" />
+            Relatório completo se encerra em {formatTime(timeLeft)} minutos
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Relatório completo pronto! Realize o pagamento para receber
+          </p>
+        </div>
+      </div>
       <MatrixBackground />
 
       <Card className="w-full max-w-md shadow-lg rounded-lg bg-card text-card-foreground relative z-10">
@@ -273,28 +532,62 @@ export default function CheckoutPage() {
                 <p className="text-center text-muted-foreground text-sm">
                   Escaneie o código QR com seu app do banco ou copie o código PIX
                 </p>
-                <Button
-                  variant="outline"
-                  className="w-full justify-center border border-border font-semibold py-2 px-4 rounded-md bg-white text-black"
-                  onClick={() => {
-                    navigator.clipboard.writeText(pixCode)
-                    alert("Código Pix copiado!")
-                  }}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copiar Código PIX
-                </Button>
+                {pixCode && (
+                  <Button
+                    variant="ghost"
+                    className="w-full hover:text-blue-600 text-sm underline mt-2 text-[rgba(37,211,102,1)]"
+                    onClick={() => setShowInstructions(true)}
+                  >
+                    Como fazer pagamento?
+                  </Button>
+                )}
                 {/* Fim das novas informações */}
 
                 <div className="flex flex-col items-center">
                   <QRCode value={pixCode} size={150} level="H" />
-                  <p className="text-sm text-muted-foreground mt-1">Válido por 30 minutos</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Expira em {formatPixTime(pixExpirationTime)} minutos.
+                  </p>
+                  <p className="text-lg font-bold text-[#15FF00] mt-2">
+                    Valor: R${" "}
+                    {(
+                      totalAmount +
+                      (selectedOrderBumps.investigacao ? 9.9 : 0) +
+                      (selectedOrderBumps.localizacao ? 6.9 : 0) +
+                      (selectedOrderBumps.relatorio ? 14.9 : 0)
+                    )
+                      .toFixed(2)
+                      .replace(".", ",")}
+                  </p>
                   {/* Novo elemento de status */}
                   <div className="flex items-center justify-center border border-border rounded-full px-4 py-2 mt-2 bg-muted/20">
                     <Clock className="h-4 w-4 text-muted-foreground mr-2" />
                     <span className="text-sm text-muted-foreground">Status: Aguardando Pagamento</span>
                   </div>
                   {/* Fim do novo elemento de status */}
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center border border-border font-semibold py-2 px-4 rounded-md bg-white text-black animate-pulse mt-4"
+                    onClick={() => {
+                      navigator.clipboard.writeText(pixCode)
+                      alert("Código Pix copiado!")
+
+                      // Iniciar timer para mostrar pop-up após copiar (apenas se ainda não foi mostrado)
+                      if (!bonusPopupShown && !bonusPopupShownAfterCopy) {
+                        setBonusPopupShownAfterCopy(true)
+                        setTimeout(() => {
+                          if (document.visibilityState === "visible" && !showInstructions && !showBonusPopup) {
+                            setBonusTimeLeft(300) // Reset para 5 minutos
+                            setShowBonusPopup(true)
+                            setBonusPopupShown(true) // Marcar que o pop-up foi mostrado
+                          }
+                        }, 7000) // 7 segundos após copiar
+                      }
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar Código PIX
+                  </Button>
 
                   <div className="text-center mt-4 p-3 bg-muted/10 rounded-lg border border-border">
                     <p className="text-sm text-muted-foreground">ID da Transação</p>
@@ -305,6 +598,8 @@ export default function CheckoutPage() {
                     <li>O pagamento será confirmado automaticamente</li>
                     <li>Após o pagamento, você receberá o relatório por e-mail</li>
                     <li>Em caso de dúvidas, guarde o ID da transação</li>
+                    <li>Satisfação com relatório ou dinheiro de volta</li>
+                    <li>Relatório completo válido por tempo limitado</li>
                   </ul>
                 </div>
               </div>
@@ -356,7 +651,7 @@ export default function CheckoutPage() {
             ) : paymentStatus === "completed" ? (
               "Pagamento Concluído"
             ) : pixCode !== null ? (
-              "Realize o pagamento"
+              "Aguardando o pagamento..."
             ) : (
               `Gerar PIX - R$ ${totalAmount.toFixed(2).replace(".", ",")}`
             )}
@@ -373,28 +668,127 @@ export default function CheckoutPage() {
 
           {/* SEÇÃO DE DEPOIMENTOS AGORA DENTRO DO CARD */}
           <div className="w-full space-y-6 pt-4">
-            <h2 className="text-xl font-bold text-foreground flex items-center">
-              <Star className="h-6 w-6 fill-yellow-500 text-yellow-500 mr-2" />O que nossos clientes dizem
+            <h2 className="text-2xl font-bold text-center text-[#15FF00] text-glow-green">
+              O que nossos clientes dizem
             </h2>
-            <TestimonialCard
-              name="Mariana M."
-              text="Eu sempre desconfiei, mas ele era bom de papo… dizia q apagava as conversas pq 'não queria briga'. Quando vi o relatório, veio tudo à tona. Msg com ex, coraçãozinho, chamada de vídeo… sério, foi a prova q eu precisava pra dar um basta"
-            />
-            <TestimonialCard
-              name="Larissa S."
-              text="Desconfiei por semanas, mas ele era do tipo 'bom de lábia'. O relatório mostrou tudo: mensagens antigas, conversas que ele jurava que nunca existiram. Foi a melhor coisa que fiz. Abri meus olhos antes que fosse tarde demais."
-            />
-            <TestimonialCard
-              name="Juliana R."
-              text="Sou mãe, trabalho o dia inteiro, e ainda tinha que lidar com as mentiras dele? O relatório foi minha salvação. Me mostrou tudo que eu não queria ver, mas precisava. Agora ele que lide com o silêncio."
-            />
+            <TestimonialCarousel />
           </div>
         </CardContent>
       </Card>
+      {showInstructions && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md bg-background text-foreground max-h-[90vh] overflow-y-auto border border-border">
+            <CardContent className="p-6 space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-[#15FF00] text-glow-green">💡 Como fazer o pagamento PIX</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowInstructions(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-muted/20 border border-border rounded-lg p-4">
+                  <div className="space-y-3 text-sm text-foreground">
+                    <div className="flex items-start space-x-3">
+                      <span className="bg-[#15FF00] text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        1
+                      </span>
+                      <div>
+                        <p className="font-semibold">Abra o app do seu banco</p>
+                        <p className="text-muted-foreground">Nubank, Inter, Itaú, Bradesco, Santander, etc.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="bg-[#15FF00] text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        2
+                      </span>
+                      <div>
+                        <p className="font-semibold">Procure a opção "PIX"</p>
+                        <p className="text-muted-foreground">Geralmente fica no menu principal</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="bg-[#15FF00] text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        3
+                      </span>
+                      <div>
+                        <p className="font-semibold">Selecione "PIX Copia e Cola"</p>
+                        <p className="text-muted-foreground">Ou "Pagar com código PIX"</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="bg-[#15FF00] text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        4
+                      </span>
+                      <div>
+                        <p className="font-semibold">Cole o código PIX</p>
+                        <p className="text-muted-foreground">Use o botão abaixo para copiar</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <span className="bg-[#15FF00] text-black rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        ✓
+                      </span>
+                      <div>
+                        <p className="font-semibold text-[#15FF00]">Confirme o pagamento</p>
+                        <p className="text-muted-foreground">Verifique o valor e confirme</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => {
+                    navigator.clipboard.writeText(pixCode!)
+                    alert("Código PIX copiado!")
+
+                    // Iniciar timer para mostrar pop-up após copiar (apenas se ainda não foi mostrado)
+                    if (!bonusPopupShown && !bonusPopupShownAfterCopy) {
+                      setBonusPopupShownAfterCopy(true)
+                      setTimeout(() => {
+                        if (document.visibilityState === "visible" && !showInstructions && !showBonusPopup) {
+                          setBonusTimeLeft(300) // Reset para 5 minutos
+                          setShowBonusPopup(true)
+                          setBonusPopupShown(true) // Marcar que o pop-up foi mostrado
+                        }
+                      }, 7000) // 7 segundos após copiar
+                    }
+                  }}
+                  className="w-full py-3 text-lg font-bold bg-gradient-to-r from-[#25D366] to-[#15FF00] hover:from-[#25D366]/90 hover:to-[#15FF00]/90 text-black animate-pulse-green"
+                >
+                  <Copy className="h-5 w-5 mr-2" />
+                  Copiar Código PIX
+                </Button>
+
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">
+                    Após copiar, volte para o app do seu banco e cole o código
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       {showOrderBumps && (
         <div className="fixed inset-0 bg-black/80 flex items-start justify-center p-2 z-50 overflow-y-auto">
           <Card className="w-full max-w-md bg-card text-card-foreground mt-4 mb-4">
             <CardContent className="p-4 space-y-4">
+              {/* Barra de escassez no topo */}
+              <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Clock className="h-4 w-4 text-[#15FF00] mr-2" />
+                  <span className="text-[#15FF00] font-bold text-sm">
+                    Ofertas especiais acabam em {formatOrderBumpTime(orderBumpTimeLeft)} minutos
+                  </span>
+                </div>
+              </div>
+
               <div className="text-center">
                 <h2 className="text-xl font-bold text-[#15FF00] text-glow-green mb-1">🎯 OFERTA ESPECIAL!</h2>
                 <p className="text-muted-foreground text-xs">Aproveite essas ofertas exclusivas antes de finalizar</p>
@@ -417,16 +811,23 @@ export default function CheckoutPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <label htmlFor="investigacao" className="cursor-pointer">
-                      <h3 className="font-bold text-foreground text-sm leading-tight">
+                      <h3 className="font-bold text-foreground text-lg leading-tight">
                         ✅ 2 Investigações pelo preço de 1
                       </h3>
-                      <p className="text-muted-foreground text-xs mt-1 leading-tight">
+                      <p className="text-muted-foreground text-sm mt-1 leading-tight">
                         2 relatórios completos. Perfeito para investigar mais pessoas.
                       </p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <span className="text-muted-foreground line-through text-xs">R$ 19,90</span>
                         <span className="text-green-500 font-bold text-lg">R$ 9,90</span>
-                        <span className="bg-red-500 text-white text-xs px-1 py-0.5 rounded">50% OFF</span>
+                        <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">50% OFF</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center bg-green-500/20 border border-green-500/50 rounded px-2 py-1">
+                          <span className="text-[#15FF00] text-xs font-bold">
+                            🔥 Restam apenas {getAvailableOffersInvestigacao()}/10 ofertas disponíveis
+                          </span>
+                        </div>
                       </div>
                     </label>
                   </div>
@@ -450,14 +851,21 @@ export default function CheckoutPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <label htmlFor="localizacao" className="cursor-pointer">
-                      <h3 className="font-bold text-foreground text-sm leading-tight">📍 Localização 24H</h3>
-                      <p className="text-muted-foreground text-xs mt-1 leading-tight">
+                      <h3 className="font-bold text-foreground text-lg leading-tight">📍 Localização 24H</h3>
+                      <p className="text-muted-foreground text-sm mt-1 leading-tight">
                         Todos os lugares visitados em tempo real por 24 horas.
                       </p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <span className="text-muted-foreground line-through text-xs">R$ 14,90</span>
                         <span className="text-green-500 font-bold text-lg">R$ 6,90</span>
-                        <span className="bg-red-500 text-white text-xs px-1 py-0.5 rounded">53% OFF</span>
+                        <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">53% OFF</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center bg-green-500/20 border border-green-500/50 rounded px-2 py-1">
+                          <span className="text-[#15FF00] text-xs font-bold">
+                            🔥 Restam apenas {getAvailableOffersLocalizacao()}/10 ofertas disponíveis
+                          </span>
+                        </div>
                       </div>
                     </label>
                   </div>
@@ -481,14 +889,21 @@ export default function CheckoutPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <label htmlFor="relatorio" className="cursor-pointer">
-                      <h3 className="font-bold text-foreground text-sm leading-tight">📊 Relatório Semanal</h3>
-                      <p className="text-muted-foreground text-xs mt-1 leading-tight">
+                      <h3 className="font-bold text-foreground text-lg leading-tight">📊 Relatório Semanal</h3>
+                      <p className="text-muted-foreground text-sm mt-1 leading-tight">
                         Atualizações importantes toda semana de forma anônima.
                       </p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <span className="text-muted-foreground line-through text-xs">R$ 29,90</span>
                         <span className="text-green-500 font-bold text-lg">R$ 14,90</span>
-                        <span className="bg-red-500 text-white text-xs px-1 py-0.5 rounded">50% OFF</span>
+                        <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">50% OFF</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center bg-green-500/20 border border-green-500/50 rounded px-2 py-1">
+                          <span className="text-[#15FF00] text-xs font-bold">
+                            🔥 Restam apenas {getAvailableOffersRelatorio()}/10 ofertas disponíveis
+                          </span>
+                        </div>
                       </div>
                     </label>
                   </div>
@@ -585,6 +1000,185 @@ export default function CheckoutPage() {
           </Card>
         </div>
       )}
+      {showBonusPopup && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md bg-card text-card-foreground border border-border animate-in fade-in-0 zoom-in-95">
+            <CardContent className="p-6 space-y-4">
+              {/* Barra de escassez no topo */}
+              <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Clock className="h-4 w-4 text-[#15FF00] mr-2" />
+                  <span className="text-[#15FF00] font-bold text-sm">
+                    Oferta acaba em {formatBonusTime(bonusTimeLeft)} minutos
+                  </span>
+                </div>
+                {/* Barra de progresso */}
+                <div className="w-full bg-green-900/30 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-[#15FF00] to-green-400 h-2 rounded-full transition-all duration-1000"
+                    style={{ width: `${(bonusTimeLeft / 300) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="text-center">
+                <div className="text-4xl mb-2">🎁</div>
+                <h2 className="text-2xl font-bold text-[#15FF00] text-glow-green mb-2">VOCÊ GANHOU BÔNUS ESPECIAL!</h2>
+                <p className="text-lg font-semibold text-card-foreground mb-1">Pague AGORA e ganhe:</p>
+                <div className="bg-gradient-to-r from-green-500/10 to-[#15FF00]/10 border border-green-500/20 rounded-lg p-3 mb-4">
+                  <p className="text-[#15FF00] font-bold text-lg">RELATÓRIO COMPLETO VIP + BÔNUS 🎁</p>
+                  <p className="text-sm text-muted-foreground">
+                    Análise completa de redes sociais + histórico de 3 meses
+                  </p>
+                  <div className="flex items-center justify-center mt-2">
+                    <span className="text-xs text-yellow-300 mr-2"></span>
+                    <span className="text-2xl font-extrabold text-[#15FF00] bg-green-400/20 px-3 py-1 rounded-full border border-green-400/50 animate-pulse">
+                      R$9,90
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="text-center p-3 bg-muted/10 rounded-lg border border-border">
+                  <p className="text-sm text-muted-foreground mb-2">Seu código PIX:</p>
+                  <div className="bg-background/30 p-2 rounded border text-xs break-all font-mono">{pixCode}</div>
+                </div>
+
+                <Button
+                  onClick={() => {
+                    navigator.clipboard.writeText(pixCode!)
+                    alert("Código PIX copiado! Cole no seu banco e finalize o pagamento para garantir o bônus!")
+                  }}
+                  className="w-full py-4 text-lg font-bold bg-gradient-to-r from-green-500 to-[#15FF00] hover:from-green-600 hover:to-[#15FF00]/90 text-black animate-pulse"
+                >
+                  <Copy className="h-5 w-5 mr-2" />
+                  COPIAR PIX E GARANTIR BÔNUS
+                </Button>
+
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    ⚡ Oferta válida apenas para pagamentos realizados até {(() => {
+                      const now = new Date()
+                      const futureTime = new Date(now.getTime() + 5 * 60 * 1000) // +5 minutos
+                      return futureTime.toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })
+                    })()}
+                  </p>
+                  <Button
+                    onClick={() => setShowBonusPopup(false)}
+                    variant="ghost"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Fechar (continuar sem bônus)
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Componente do carrossel de depoimentos */
+function TestimonialCarousel() {
+  const [currentIndex, setCurrentIndex] = useState(0)
+
+  const testimonials = [
+    {
+      name: "Mariana M.",
+      text: "Eu sempre desconfiei, mas ele era bom de papo… dizia q apagava as conversas pq 'não queria briga'. Quando vi o relatório, veio tudo à tona. Msg com ex, coraçãozinho, chamada de vídeo… sério, foi a prova q eu precisava pra dar um basta",
+    },
+    {
+      name: "Larissa S.",
+      text: "Desconfiei por semanas, mas ele era do tipo 'bom de lábia'. O relatório mostrou tudo: mensagens antigas, conversas que ele jurava que nunca existiram. Foi a melhor coisa que fiz. Abri meus olhos antes que fosse tarde demais.",
+    },
+    {
+      name: "Juliana R.",
+      text: "Sou mãe, trabalho o dia inteiro, e ainda tinha que lidar com as mentiras dele? O relatório foi minha salvação. Me mostrou tudo que eu não queria ver, mas precisava. Agora ele que lide com o silêncio.",
+    },
+    {
+      name: "Camila T.",
+      text: "Ele sempre deixava o celular virado pra baixo e saía pra atender ligação. O relatório mostrou que ele tinha 3 conversas ativas no Tinder. Pelo menos agora sei que não era paranoia minha.",
+    },
+    {
+      name: "Fernanda L.",
+      text: "Descobri que ele estava conversando com a ex há meses. Dizia que era só amizade, mas as mensagens que vi no relatório contavam outra história. Me livrei de um mentiroso.",
+    },
+    {
+      name: "Beatriz C.",
+      text: "Gastei anos da minha vida com alguém que me traía. O relatório me deu coragem pra terminar e seguir em frente. Hoje sou muito mais feliz sozinha do que era com ele.",
+    },
+    {
+      name: "Amanda P.",
+      text: "Ele sempre negava tudo, me fazia pensar que eu estava louca. O relatório provou que eu estava certa o tempo todo. Agora ele que se explique pra outra.",
+    },
+    {
+      name: "Gabriela F.",
+      text: "Descobri que ele tinha perfil em 5 apps de relacionamento diferentes. Dizia que me amava, mas estava procurando outras. O relatório salvou minha vida amorosa.",
+    },
+    {
+      name: "Rafaela M.",
+      text: "Ele apagava tudo, mas o relatório mostrou conversas de madrugada, fotos íntimas trocadas… Fiquei chocada, mas pelo menos agora sei a verdade e posso recomeçar.",
+    },
+    {
+      name: "Patrícia D.",
+      text: "Sempre desconfiei das 'reuniões de trabalho' até tarde. O relatório mostrou que ele estava saindo com colegas de trabalho. Pelo menos agora sei que não era trabalho mesmo.",
+    },
+    {
+      name: "Carolina B.",
+      text: "Ele dizia que eu era ciumenta demais, mas o relatório provou que eu tinha razão. Conversas românticas com várias mulheres. Agora ele que explique isso pra família dele.",
+    },
+    {
+      name: "Vanessa K.",
+      text: "Descobri que ele estava marcando encontros enquanto eu cuidava dos nossos filhos. O relatório me deu a prova que eu precisava pra pedir o divórcio. Melhor decisão da minha vida.",
+    },
+  ]
+
+  // Auto-rotação do carrossel
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % testimonials.length)
+    }, 10000) // Alterado de 7000 para 10000 (10 segundos)
+
+    return () => clearInterval(interval)
+  }, [testimonials.length])
+
+  // Mostrar 3 depoimentos por vez
+  const getVisibleTestimonials = () => {
+    const visible = []
+    for (let i = 0; i < 3; i++) {
+      const index = (currentIndex + i) % testimonials.length
+      visible.push(testimonials[index])
+    }
+    return visible
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4">
+        {getVisibleTestimonials().map((testimonial, index) => (
+          <TestimonialCard key={`${currentIndex}-${index}`} name={testimonial.name} text={testimonial.text} />
+        ))}
+      </div>
+
+      {/* Indicadores do carrossel */}
+      <div className="flex justify-center space-x-2">
+        {Array.from({ length: Math.ceil(testimonials.length / 3) }).map((_, index) => (
+          <button
+            key={index}
+            onClick={() => setCurrentIndex(index * 3)}
+            className={`w-2 h-2 rounded-full transition-colors ${
+              Math.floor(currentIndex / 3) === index ? "bg-[#15FF00]" : "bg-muted-foreground/30"
+            }`}
+          />
+        ))}
+      </div>
     </div>
   )
 }
