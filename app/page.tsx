@@ -2,7 +2,7 @@
 
 import type * as React from "react"
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation" // Importar useRouter
+import { useRouter, useSearchParams } from "next/navigation" // Importar useRouter
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -50,6 +50,7 @@ interface VerifyPixResponse {
 // -------- COMPONENTE --------
 export default function CheckoutPage() {
   const router = useRouter() // Inicializar useRouter
+  const searchParams = useSearchParams()
   const [pixCode, setPixCode] = useState<string | null>(null)
   const [transactionId, setTransactionId] = useState<string | null>(null)
   const [paymentStatus, setPaymentStatus] = useState<"pending" | "completed" | "failed" | null>(null)
@@ -61,8 +62,8 @@ export default function CheckoutPage() {
   const [customerEmail, setCustomerEmail] = useState("")
 
   const itemTitle = "BLCKX7" // Nome do produto para a API
-  const itemPrice = 9.9
-  const totalAmount = 9.9
+  const itemPrice = 9.9 // Alterado de 14.9 para 9.9
+  const totalAmount = 9.9 // Alterado de 14.9 para 9.9
 
   const description = "Pagamento do BLCKX7" // Descrição para a API
 
@@ -142,7 +143,7 @@ export default function CheckoutPage() {
         price: Math.round(finalAmount * 100),
         quantity: 1,
       },
-      utm: "checkout-v0",
+      utm: searchParams.toString() || "checkout-v0",
     }
 
     try {
@@ -162,13 +163,13 @@ export default function CheckoutPage() {
       setPaymentStatus("pending")
 
       // Dispara evento AddToCart
-      if (typeof window !== "undefined" && (window as any).fbq) {
-        ;(window as any).fbq("track", "AddToCart", {
-          value: finalAmount,
-          currency: "BRL",
-          content_name: "WHATS ESPIÃO",
-        })
-      }
+      // if (typeof window !== "undefined" && (window as any).fbq) {
+      //   ;(window as any).fbq("track", "AddToCart", {
+      //     value: finalAmount,
+      //     currency: "BRL",
+      //     content_name: "WHATS ESPIÃO",
+      //   })
+      // }
     } catch (err) {
       console.error(err)
       alert("Erro ao gerar PIX.")
@@ -191,21 +192,21 @@ export default function CheckoutPage() {
       setPaymentStatus(data.status)
 
       // Dispara o evento Purchase ao confirmar o pagamento como concluído
-      if (data.status === "completed" && typeof window !== "undefined" && (window as any).fbq) {
-        // Calcular valor total incluindo orderbumps
-        const finalAmount =
-          totalAmount +
-          (selectedOrderBumps.investigacao ? 9.9 : 0) +
-          (selectedOrderBumps.localizacao ? 6.9 : 0) +
-          (selectedOrderBumps.relatorio ? 14.9 : 0)
-        ;(window as any).fbq("track", "Purchase", {
-          value: finalAmount,
-          currency: "BRL",
-          content_name: "WHATS ESPIÃO",
-          content_ids: ["whats-espiao"],
-          content_type: "product",
-        })
-      }
+      // if (data.status === "completed" && typeof window !== "undefined" && (window as any).fbq) {
+      //   // Calcular valor total incluindo orderbumps
+      //   const finalAmount =
+      //     totalAmount +
+      //     (selectedOrderBumps.investigacao ? 9.9 : 0) +
+      //     (selectedOrderBumps.localizacao ? 6.9 : 0) +
+      //     (selectedOrderBumps.relatorio ? 14.9 : 0)
+      //   ;(window as any).fbq("track", "Purchase", {
+      //     value: finalAmount,
+      //     currency: "BRL",
+      //     content_name: "WHATS ESPIÃO",
+      //     content_ids: ["whats-espiao"],
+      //     content_type: "product",
+      //   })
+      // }
     } catch (err) {
       console.error(err)
       setPaymentStatus("failed")
@@ -215,7 +216,7 @@ export default function CheckoutPage() {
   }
 
   useEffect(() => {
-    // Dispara o evento InitializeCheckout quando o componente é montado
+    // Dispara o evento InitiateCheckout quando o componente é montado
     if (typeof window !== "undefined" && (window as any).fbq) {
       ;(window as any).fbq("track", "InitiateCheckout")
     }
@@ -481,7 +482,7 @@ export default function CheckoutPage() {
             <h1 className="text-6xl font-extrabold uppercase text-[#15FF00] text-glow-green mb-2">{"WHATS ESPIÃO"}</h1>{" "}
             {/* Título exibido */}
             <p className="text-4xl font-extrabold text-pink-500 mb-2">R$ {totalAmount.toFixed(2).replace(".", ",")}</p>
-            <p className="text-sm text-muted">Desconto especial por tempo limitado</p>
+            <p className="text-sm text-muted">Desconto especial até {new Date().toLocaleDateString("pt-BR")}</p>
           </div>
 
           {/* BENEFÍCIOS */}
@@ -503,11 +504,15 @@ export default function CheckoutPage() {
 
           {/* ESTATÍSTICAS */}
           <div className="text-center space-y-4">
-            <p className="text-foreground font-semibold">
-              Mais de 75.000 pessoas já descobriram a verdade usando nosso APP Oficial
+            <p className="text-foreground font-semibold text-center">
+              Mais de 50.000 pessoas já descobriram a verdade usando nosso APP{" "}
+              <span className="inline-flex items-center gap-1">
+                Oficial
+                <img src="/whatsapp-icon.webp" alt="WhatsApp" className="h-[0.9em] w-[0.9em]" />
+              </span>
             </p>
             <div className="flex justify-around">
-              <Stat value="75k+" label="Relatórios gerados" />
+              <Stat value="50k+" label="Relatórios gerados" />
               <Stat value="99%" label="Taxa de sucesso" />
               <Stat
                 value={
@@ -1110,7 +1115,7 @@ function TestimonialCarousel() {
     },
     {
       name: "Larissa S.",
-      text: "Desconfiei por semanas, mas ele era do tipo 'bom de lábia'. O relatório mostrou tudo: mensagens antigas, conversas que ele jurava que nunca existiram. Foi a melhor coisa que fiz. Abri meus olhos antes que fosse tarde demais.",
+      text: "O relatório é incrível! Mostrou conversas que ele jurava que nunca existiram, horários de atividade suspeitos, até contatos que ele tinha bloqueado do meu WhatsApp. Valeu cada centavo, me salvou de anos de mentira.",
     },
     {
       name: "Juliana R.",
@@ -1130,7 +1135,7 @@ function TestimonialCarousel() {
     },
     {
       name: "Amanda P.",
-      text: "Ele sempre negava tudo, me fazia pensar que eu estava louca. O relatório provou que eu estava certa o tempo todo. Agora ele que se explique pra outra.",
+      text: "O relatório é muito detalhado! Mostra até os grupos que a pessoa participa, últimas visualizações, padrões de comportamento... Descobri coisas que nem imaginava. Recomendo demais!",
     },
     {
       name: "Gabriela F.",
@@ -1146,11 +1151,27 @@ function TestimonialCarousel() {
     },
     {
       name: "Carolina B.",
-      text: "Ele dizia que eu era ciumenta demais, mas o relatório provou que eu tinha razão. Conversas românticas com várias mulheres. Agora ele que explique isso pra família dele.",
+      text: "Fiquei impressionada com a qualidade do relatório. Muito completo, com capturas de tela, horários, frequência de mensagens... Tudo organizadinho. Agora tenho certeza do que estava acontecendo.",
     },
     {
       name: "Vanessa K.",
       text: "Descobri que ele estava marcando encontros enquanto eu cuidava dos nossos filhos. O relatório me deu a prova que eu precisava pra pedir o divórcio. Melhor decisão da minha vida.",
+    },
+    {
+      name: "Priscila A.",
+      text: "Bom, no meu caso o relatório mostrou que eu estava sendo paranóica mesmo. Ele não estava fazendo nada demais, era só trabalho e família. Pelo menos agora tenho certeza e posso confiar mais nele.",
+    },
+    {
+      name: "Renata F.",
+      text: "O relatório é bem detalhado e profissional. No final das contas, descobri que minhas suspeitas eram infundadas. Ele realmente estava só conversando com amigos e colegas de trabalho. Me ajudou a ter paz de espírito.",
+    },
+    {
+      name: "Luciana M.",
+      text: "Pensei que ia descobrir traição, mas o relatório mostrou que era tudo coisa da minha cabeça. Ele só conversa com a família e alguns amigos. Pelo menos agora sei que posso confiar nele 100%.",
+    },
+    {
+      name: "Daniela S.",
+      text: "O relatório é muito bom e completo! Mostra tudo: contatos, grupos, atividades... No meu caso, felizmente não tinha nada suspeito. Meu marido é fiel mesmo. Valeu a pena pela tranquilidade.",
     },
   ]
 
