@@ -62,8 +62,8 @@ export default function CheckoutPage() {
   const [customerEmail, setCustomerEmail] = useState("")
 
   const itemTitle = "BLCKX7" // Nome do produto para a API
-  const itemPrice = 9.9 // Alterado de 14.9 para 9.9
-  const totalAmount = 9.9 // Alterado de 14.9 para 9.9
+  const itemPrice = 19.9 // Preço do produto
+  const totalAmount = 19.9 // Valor total do produto
 
   const description = "Pagamento do BLCKX7" // Descrição para a API
 
@@ -79,7 +79,7 @@ export default function CheckoutPage() {
   const [showInstructions, setShowInstructions] = useState(false)
 
   // Estado para o countdown de escassez
-  const [timeLeft, setTimeLeft] = useState(942) // 15 minutos e 42 segundos
+  const [timeLeft, setTimeLeft] = useState(300) // 5 minutos
   // Remover o estado isUrgent pois não será mais usado
   // const [isUrgent, setIsUrgent] = useState(false)
 
@@ -120,13 +120,13 @@ export default function CheckoutPage() {
     // Calcular valor total baseado nos orderbumps selecionados
     let finalAmount = totalAmount
     if (selectedOrderBumps.investigacao) {
-      finalAmount += 9.9
+      finalAmount += 11.9
     }
     if (selectedOrderBumps.localizacao) {
       finalAmount += 6.9
     }
     if (selectedOrderBumps.relatorio) {
-      finalAmount += 14.9
+      finalAmount += 7.9
     }
 
     const payload: GeneratePixPayload = {
@@ -387,7 +387,7 @@ export default function CheckoutPage() {
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  // Função para calcular ofertas disponíveis da primeira oferta (mais rápida)
+  // Função para calcular ofertas disponíveis da primeira oferta - começar com 8
   const getAvailableOffersInvestigacao = () => {
     const totalTime = 180 // 3 minutos
     const timeElapsed = totalTime - orderBumpTimeLeft
@@ -395,23 +395,23 @@ export default function CheckoutPage() {
     // Lógica de diminuição rápida no início e lenta no final
     let offersReduction = 0
 
-    // Diminui de 9 para 4 ofertas (5 ofertas reduzidas)
+    // Diminui de 8 para 3 ofertas (5 ofertas reduzidas)
     if (timeElapsed <= 30) {
-      // Primeiros 30 segundos: diminui a cada 6 segundos (5-8 segundos)
+      // Primeiros 30 segundos: diminui a cada 6 segundos
       offersReduction = Math.floor(timeElapsed / 6)
     } else {
-      // Depois que chega em 4/10: diminui a cada 10 segundos
+      // Depois que chega em 3/10: diminui a cada 10 segundos
       const fastReduction = Math.floor(30 / 6) // 5 ofertas nos primeiros 30s
       const slowTimeElapsed = timeElapsed - 30
       const slowReduction = Math.floor(slowTimeElapsed / 10)
       offersReduction = fastReduction + slowReduction
     }
 
-    const availableOffers = Math.max(1, 9 - offersReduction)
+    const availableOffers = Math.max(1, 8 - offersReduction)
     return availableOffers
   }
 
-  // Função para calcular ofertas disponíveis da segunda oferta (ritmo normal)
+  // Função para calcular ofertas disponíveis da segunda oferta - começar com 9
   const getAvailableOffersLocalizacao = () => {
     const totalTime = 180 // 3 minutos
     const timeElapsed = totalTime - orderBumpTimeLeft
@@ -435,7 +435,7 @@ export default function CheckoutPage() {
     return availableOffers
   }
 
-  // Função para calcular ofertas disponíveis da terceira oferta (ritmo normal)
+  // Função para calcular ofertas disponíveis da terceira oferta - começar com 7
   const getAvailableOffersRelatorio = () => {
     const totalTime = 180 // 3 minutos
     const timeElapsed = totalTime - orderBumpTimeLeft
@@ -443,19 +443,19 @@ export default function CheckoutPage() {
     // Lógica de diminuição rápida no início e lenta no final
     let offersReduction = 0
 
-    // Diminui de 9 para 4 ofertas (5 ofertas reduzidas)
+    // Diminui de 7 para 2 ofertas (5 ofertas reduzidas)
     if (timeElapsed <= 45) {
-      // Primeiros 45 segundos: diminui a cada 9 segundos (8-10 segundos)
+      // Primeiros 45 segundos: diminui a cada 9 segundos
       offersReduction = Math.floor(timeElapsed / 9)
     } else {
-      // Depois que chega em 4/10: diminui a cada 15 segundos
+      // Depois que chega em 2/10: diminui a cada 15 segundos
       const fastReduction = Math.floor(45 / 9) // 5 ofertas nos primeiros 45s
       const slowTimeElapsed = timeElapsed - 45
       const slowReduction = Math.floor(slowTimeElapsed / 15)
       offersReduction = fastReduction + slowReduction
     }
 
-    const availableOffers = Math.max(1, 9 - offersReduction)
+    const availableOffers = Math.max(1, 7 - offersReduction)
     return availableOffers
   }
 
@@ -464,13 +464,27 @@ export default function CheckoutPage() {
       {/* BARRA DE ESCASSEZ */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border p-3 text-center">
         <div className="flex flex-col items-center justify-center">
-          <p className="text-base font-semibold text-[#15FF00] text-glow-green flex items-center justify-center">
-            <Clock className="h-5 w-5 mr-2" />
-            Relatório completo se encerra em {formatTime(timeLeft)} minutos
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Relatório completo pronto! Realize o pagamento para receber
-          </p>
+          {timeLeft > 0 ? (
+            <>
+              <p className="text-base font-semibold text-[#15FF00] text-glow-green flex items-center justify-center">
+                <Clock className="h-5 w-5 mr-2" />
+                Relatório completo se encerra em {formatTime(timeLeft)} minutos
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Relatório completo pronto! Realize o pagamento para receber
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-base font-semibold text-red-500 flex items-center justify-center animate-pulse">
+                <Clock className="h-5 w-5 mr-2" />
+                GARANTIR AGORA
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Últimas unidades disponíveis! Garante já o seu relatório
+              </p>
+            </>
+          )}
         </div>
       </div>
       <MatrixBackground />
@@ -571,9 +585,9 @@ export default function CheckoutPage() {
                     Valor: R${" "}
                     {(
                       totalAmount +
-                      (selectedOrderBumps.investigacao ? 9.9 : 0) +
+                      (selectedOrderBumps.investigacao ? 11.9 : 0) +
                       (selectedOrderBumps.localizacao ? 6.9 : 0) +
-                      (selectedOrderBumps.relatorio ? 14.9 : 0)
+                      (selectedOrderBumps.relatorio ? 7.9 : 0)
                     )
                       .toFixed(2)
                       .replace(".", ",")}
@@ -831,14 +845,15 @@ export default function CheckoutPage() {
                   <div className="flex-1 min-w-0">
                     <label htmlFor="investigacao" className="cursor-pointer">
                       <h3 className="font-bold text-foreground text-lg leading-tight">
-                        ✅ 2 Investigações pelo preço de 1
+                        ✅ 2 Investigações pelo Preço de 1 (EXCLUSIVO)
                       </h3>
                       <p className="text-muted-foreground text-sm mt-1 leading-tight">
-                        2 relatórios completos. Perfeito para investigar mais pessoas.
+                        Descubra tudo sobre duas pessoas diferentes com um único clique ou descubra mais da mesma
+                        pessoa!
                       </p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        <span className="text-muted-foreground line-through text-xs">R$ 19,90</span>
-                        <span className="text-green-500 font-bold text-lg">R$ 9,90</span>
+                        <span className="text-muted-foreground line-through text-xs">De R$ 49,90</span>
+                        <span className="text-green-500 font-bold text-lg">R$ 19,90</span>
                         <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">50% OFF</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
@@ -870,14 +885,17 @@ export default function CheckoutPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <label htmlFor="localizacao" className="cursor-pointer">
-                      <h3 className="font-bold text-foreground text-lg leading-tight">📍 Whats Premium</h3>
+                      <h3 className="font-bold text-foreground text-lg leading-tight">
+                        📱 Whats Premium: Acesso Espelhado
+                      </h3>
                       <p className="text-muted-foreground text-sm mt-1 leading-tight">
-                        Tenha o seu e o dele no mesmo celular! por que não?
+                        Veja tudo o que acontece no WhatsApp dela sem ela saber no seu celular. Mais praticidade, mais
+                        controle.
                       </p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        <span className="text-muted-foreground line-through text-xs">R$ 14,90</span>
+                        <span className="text-muted-foreground line-through text-xs">De R$ 9,90</span>
                         <span className="text-green-500 font-bold text-lg">R$ 6,90</span>
-                        <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">53% OFF</span>
+                        <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">25% OFF</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="flex items-center bg-green-500/20 border border-green-500/50 rounded px-2 py-1">
@@ -908,14 +926,16 @@ export default function CheckoutPage() {
                   />
                   <div className="flex-1 min-w-0">
                     <label htmlFor="relatorio" className="cursor-pointer">
-                      <h3 className="font-bold text-foreground text-lg leading-tight">📊 Relatório Semanal</h3>
+                      <h3 className="font-bold text-foreground text-lg leading-tight">
+                        📊 Atualizações Secretas por 7 Dias
+                      </h3>
                       <p className="text-muted-foreground text-sm mt-1 leading-tight">
-                        Atualizações importantes toda semana de forma anônima.
+                        Receba relatórios semanais detalhados sem levantar suspeitas. 😱 Ideal para acompanhar mudanças!
                       </p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        <span className="text-muted-foreground line-through text-xs">R$ 29,90</span>
-                        <span className="text-green-500 font-bold text-lg">R$ 14,90</span>
-                        <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">50% OFF</span>
+                        <span className="text-muted-foreground line-through text-xs">De R$ 25,90</span>
+                        <span className="text-green-500 font-bold text-lg">R$ 7,90</span>
+                        <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">69% OFF</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="flex items-center bg-green-500/20 border border-green-500/50 rounded px-2 py-1">
@@ -940,19 +960,19 @@ export default function CheckoutPage() {
                   {selectedOrderBumps.investigacao && (
                     <div className="flex justify-between text-green-500">
                       <span>+ 2 Investigações</span>
-                      <span>R$ 9,90</span>
+                      <span>R$ 11,90</span>
                     </div>
                   )}
                   {selectedOrderBumps.localizacao && (
                     <div className="flex justify-between text-green-500">
-                      <span>+ Localização 24H</span>
+                      <span>+ Whats Premium</span>
                       <span>R$ 6,90</span>
                     </div>
                   )}
                   {selectedOrderBumps.relatorio && (
                     <div className="flex justify-between text-green-500">
-                      <span>+ Relatório Semanal</span>
-                      <span>R$ 14,90</span>
+                      <span>+ Atualizações 7 Dias</span>
+                      <span>R$ 7,90</span>
                     </div>
                   )}
                   <hr className="border-border" />
@@ -962,9 +982,9 @@ export default function CheckoutPage() {
                       R${" "}
                       {(
                         totalAmount +
-                        (selectedOrderBumps.investigacao ? 9.9 : 0) +
+                        (selectedOrderBumps.investigacao ? 11.9 : 0) +
                         (selectedOrderBumps.localizacao ? 6.9 : 0) +
-                        (selectedOrderBumps.relatorio ? 14.9 : 0)
+                        (selectedOrderBumps.relatorio ? 7.9 : 0)
                       )
                         .toFixed(2)
                         .replace(".", ",")}
@@ -981,9 +1001,9 @@ export default function CheckoutPage() {
                         <span>
                           R${" "}
                           {(
-                            (selectedOrderBumps.investigacao ? 10.0 : 0) +
-                            (selectedOrderBumps.localizacao ? 8.0 : 0) +
-                            (selectedOrderBumps.relatorio ? 15.0 : 0)
+                            (selectedOrderBumps.investigacao ? 108.0 : 0) +
+                            (selectedOrderBumps.localizacao ? 39.0 : 0) +
+                            (selectedOrderBumps.relatorio ? 18.0 : 0)
                           )
                             .toFixed(2)
                             .replace(".", ",")}
