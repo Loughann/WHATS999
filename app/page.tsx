@@ -142,6 +142,18 @@ export default function CheckoutPage() {
       finalAmount += 7.9
     }
 
+    // Capturar TODOS os parâmetros da URL como string
+    const urlParams = new URLSearchParams(window.location.search)
+    const allParams: string[] = []
+
+    // Iterar por todos os parâmetros e criar array de strings
+    urlParams.forEach((value, key) => {
+      allParams.push(`${key}=${value}`)
+    })
+
+    // Juntar todos os parâmetros em uma string
+    const utmString = allParams.length > 0 ? allParams.join("&") : "checkout-v0"
+
     const payload: GeneratePixPayload = {
       amount: Math.round(finalAmount * 100),
       description,
@@ -156,7 +168,7 @@ export default function CheckoutPage() {
         price: Math.round(finalAmount * 100),
         quantity: 1,
       },
-      utm: searchParams.toString() || "checkout-v0",
+      utm: utmString, // Agora passa todos os parâmetros da URL como string
     }
 
     try {
