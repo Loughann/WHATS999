@@ -1,14 +1,14 @@
 "use client"
-
-import type * as React from "react"
 import { useState, useEffect, useRef } from "react"
+import type React from "react"
+
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Copy, Loader2, ShieldCheck, Lock, Clock, Square, Star } from "lucide-react"
+import { Copy, Loader2, ShieldCheck, Lock, Clock, Square, Star, Zap } from "lucide-react"
 import QRCode from "react-qr-code"
 import { MatrixBackground } from "@/components/matrix-background"
 
@@ -58,6 +58,7 @@ export default function CheckoutPage() {
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const bonusTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const entryTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const [customerEmail, setCustomerEmail] = useState("")
 
@@ -84,6 +85,16 @@ export default function CheckoutPage() {
   const [bonusPopupShownAfterCopy, setBonusPopupShownAfterCopy] = useState(false)
   const [pixExpirationTime, setPixExpirationTime] = useState(600)
 
+  // Estados para o pop-up de entrada
+  const [showEntryBonus, setShowEntryBonus] = useState(false)
+  const [entryBonusTimeLeft, setEntryBonusTimeLeft] = useState(300)
+  const [entryBonusAccepted, setEntryBonusAccepted] = useState(false)
+
+  // Estados para o pop-up de alerta após 60 segundos
+  const [showTimeAlert, setShowTimeAlert] = useState(false)
+  const [timeAlertShown, setTimeAlertShown] = useState(false)
+  const timeAlertTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   // Função para disparar eventos de tracking
   const trackEvent = (eventName: string, eventData?: any) => {
     // Facebook Pixel - APENAS InitiateCheckout
@@ -91,7 +102,6 @@ export default function CheckoutPage() {
       if (eventName === "InitiateCheckout") {
         ;(window as any).fbq("track", "InitiateCheckout")
       }
-      // Remover AddToCart e Purchase do Facebook Pixel
     }
 
     // UTMify - Manter todos os eventos
@@ -99,12 +109,12 @@ export default function CheckoutPage() {
       if (eventName === "InitiateCheckout") {
         ;(window as any).pixel("track", "InitiateCheckout")
       } else if (eventName === "AddToCart") {
-        ;(window as any).pixel("track", "AddToCart", {
+        ;(window as any).pixel("track", {
           value: eventData?.value || 0,
           currency: "BRL",
         })
       } else if (eventName === "Purchase") {
-        ;(window as any).pixel("track", "Purchase", {
+        ;(window as any).pixel("track", {
           value: eventData?.value || 0,
           currency: "BRL",
           transaction_id: eventData?.transaction_id || "",
@@ -168,7 +178,7 @@ export default function CheckoutPage() {
         price: Math.round(finalAmount * 100),
         quantity: 1,
       },
-      utm: utmString, // Agora passa todos os parâmetros da URL como string
+      utm: utmString,
     }
 
     try {
@@ -241,6 +251,53 @@ export default function CheckoutPage() {
     }
   }
 
+  // Timer principal da barra de escassez
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
+  // Mostrar pop-up de entrada após 3 segundos
+  useEffect(() => {
+    console.log("Configurando timer do pop-up de entrada...")
+
+    entryTimerRef.current = setTimeout(() => {
+      console.log("Mostrando pop-up de entrada!")
+      setShowEntryBonus(true)
+      setEntryBonusTimeLeft(timeLeft) // Sincronizado com a barra
+    }, 3000)
+
+    return () => {
+      if (entryTimerRef.current) {
+        clearTimeout(entryTimerRef.current)
+      }
+    }
+  }, []) // Executar apenas uma vez quando o componente monta
+
+  // Sincronizar tempo do desafio com a barra de escassez
+  useEffect(() => {
+    if (showEntryBonus) {
+      setEntryBonusTimeLeft(timeLeft)
+    }
+  }, [timeLeft, showEntryBonus])
+
+  // Fechar pop-up quando tempo da barra acabar
+  useEffect(() => {
+    if (timeLeft <= 0 && showEntryBonus) {
+      setShowEntryBonus(false)
+    }
+  }, [timeLeft, showEntryBonus])
+
+  // Verificação de pagamento e redirecionamento
   useEffect(() => {
     // 🎯 TRACKING: InitiateCheckout quando página carrega
     trackEvent("InitiateCheckout")
@@ -258,20 +315,6 @@ export default function CheckoutPage() {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
   }, [transactionId, paymentStatus, router])
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [])
 
   const startBonusTimer = () => {
     if (bonusTimerRef.current) {
@@ -338,21 +381,19 @@ export default function CheckoutPage() {
   }, [showBonusPopup, bonusTimeLeft])
 
   useEffect(() => {
-    if (showOrderBumps && orderBumpTimeLeft > 0) {
-      const timer = setInterval(() => {
-        setOrderBumpTimeLeft((prev) => {
-          if (prev <= 1) {
-            setShowOrderBumps(false)
-            processPixGeneration()
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
+    const timer = setInterval(() => {
+      setOrderBumpTimeLeft((prev) => {
+        if (prev <= 1) {
+          setShowOrderBumps(false)
+          processPixGeneration()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
 
-      return () => clearInterval(timer)
-    }
-  }, [showOrderBumps, orderBumpTimeLeft])
+    return () => clearInterval(timer)
+  }, [showOrderBumps, processPixGeneration])
 
   useEffect(() => {
     if (pixCode && pixExpirationTime > 0) {
@@ -389,6 +430,12 @@ export default function CheckoutPage() {
   }
 
   const formatPixTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
+  const formatEntryBonusTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, "0")}`
@@ -451,6 +498,63 @@ export default function CheckoutPage() {
     return availableOffers
   }
 
+  const processPixGenerationRef = useRef(processPixGeneration)
+
+  useEffect(() => {
+    processPixGenerationRef.current = processPixGeneration
+  }, [processPixGeneration])
+
+  useEffect(() => {
+    if (showOrderBumps && orderBumpTimeLeft > 0) {
+      const timer = setInterval(() => {
+        setOrderBumpTimeLeft((prev) => {
+          if (prev <= 1) {
+            setShowOrderBumps(false)
+            processPixGenerationRef.current()
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+
+      return () => clearInterval(timer)
+    }
+  }, [showOrderBumps, orderBumpTimeLeft])
+
+  // Timer para mostrar alerta após 60 segundos sem gerar PIX
+  useEffect(() => {
+    if (!pixCode && !timeAlertShown) {
+      timeAlertTimerRef.current = setTimeout(() => {
+        if (!pixCode && !timeAlertShown) {
+          setShowTimeAlert(true)
+          setTimeAlertShown(true)
+        }
+      }, 60000) // 60 segundos
+    }
+
+    return () => {
+      if (timeAlertTimerRef.current) {
+        clearTimeout(timeAlertTimerRef.current)
+      }
+    }
+  }, [pixCode, timeAlertShown])
+
+  // Limpar timer quando PIX for gerado
+  useEffect(() => {
+    if (pixCode && timeAlertTimerRef.current) {
+      clearTimeout(timeAlertTimerRef.current)
+      setTimeAlertShown(true)
+    }
+  }, [pixCode])
+
+  // Debug: Adicionar logs para verificar o estado
+  console.log("Estados do pop-up:", {
+    showEntryBonus,
+    entryBonusTimeLeft,
+    timeLeft,
+    entryBonusAccepted,
+  })
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative z-10 pt-20">
       {/* BARRA DE ESCASSEZ */}
@@ -458,12 +562,12 @@ export default function CheckoutPage() {
         <div className="flex flex-col items-center justify-center">
           {timeLeft > 0 ? (
             <>
-              <p className="text-base font-semibold text-[#15FF00] text-glow-green flex items-center justify-center">
+              <p className="text-base font-semibold text-[#15FF00] text-glow-green flex items-center justify-center animate-pulse">
                 <Clock className="h-5 w-5 mr-2" />
-                Relatório completo se encerra em {formatTime(timeLeft)} minutos
+                Restam {formatTime(timeLeft)} minutos para o fim do desafio!
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Relatório completo pronto! Realize o pagamento para receber
+                Seu bônus está ativado! Realize o pagamento agora antes que seja tarde
               </p>
             </>
           ) : (
@@ -528,6 +632,98 @@ export default function CheckoutPage() {
                 }
                 label="Avaliação média"
               />
+            </div>
+          </div>
+
+          {/* SEÇÃO DE AVALIAÇÕES E SELOS DE SEGURANÇA */}
+          <div className="space-y-6">
+            {/* Avaliações */}
+            <div className="text-center space-y-4">
+              <h3 className="text-lg font-bold text-[#15FF00] text-glow-green">
+                ⭐ Avaliado por mais de 15.000 clientes
+              </h3>
+
+              <div className="flex justify-center items-center space-x-1 mb-2">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-6 w-6 fill-yellow-500 text-yellow-500" />
+                ))}
+                <span className="ml-2 text-xl font-bold text-foreground">4.9/5</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-muted/20 border border-border rounded-lg p-2">
+                  <div className="text-lg font-bold text-[#15FF00]">98%</div>
+                  <div className="text-xs text-muted-foreground">Descobriram a verdade</div>
+                </div>
+                <div className="bg-muted/20 border border-border rounded-lg p-2">
+                  <div className="text-lg font-bold text-[#15FF00]">24h</div>
+                  <div className="text-xs text-muted-foreground">Tempo médio de entrega</div>
+                </div>
+                <div className="bg-muted/20 border border-border rounded-lg p-2">
+                  <div className="text-lg font-bold text-[#15FF00]">100%</div>
+                  <div className="text-xs text-muted-foreground">Satisfação garantida</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Selos de Segurança */}
+            <div className="bg-gradient-to-r from-green-900/10 to-emerald-900/10 border border-green-500/20 rounded-lg p-4">
+              <h4 className="text-center text-sm font-bold text-[#15FF00] mb-3">🔒 CERTIFICAÇÕES E GARANTIAS</h4>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* SSL Certificado */}
+                <div className="flex items-center space-x-2 bg-muted/10 border border-border rounded-lg p-2">
+                  <div className="bg-green-500 rounded-full p-1">
+                    <ShieldCheck className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground">SSL 256-bit</div>
+                    <div className="text-xs text-muted-foreground">Criptografia máxima</div>
+                  </div>
+                </div>
+
+                {/* Pagamento Seguro */}
+                <div className="flex items-center space-x-2 bg-muted/10 border border-border rounded-lg p-2">
+                  <div className="bg-blue-500 rounded-full p-1">
+                    <Lock className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground">PIX Seguro</div>
+                    <div className="text-xs text-muted-foreground">Banco Central</div>
+                  </div>
+                </div>
+
+                {/* Dados Protegidos */}
+                <div className="flex items-center space-x-2 bg-muted/10 border border-border rounded-lg p-2">
+                  <div className="bg-purple-500 rounded-full p-1">
+                    <ShieldCheck className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground">LGPD</div>
+                    <div className="text-xs text-muted-foreground">Dados protegidos</div>
+                  </div>
+                </div>
+
+                {/* Garantia */}
+                <div className="flex items-center space-x-2 bg-muted/10 border border-border rounded-lg p-2">
+                  <div className="bg-yellow-500 rounded-full p-1">
+                    <Star className="h-4 w-4 text-white fill-white" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground">Garantia 7 dias</div>
+                    <div className="text-xs text-muted-foreground">Dinheiro de volta</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selo Principal */}
+              <div className="mt-4 text-center">
+                <div className="inline-flex items-center bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-2 border-green-500/50 rounded-full px-4 py-2">
+                  <ShieldCheck className="h-5 w-5 text-[#15FF00] mr-2" />
+                  <span className="text-sm font-bold text-[#15FF00]">PAGAMENTO VERIFICADO E LICENCIADO</span>
+                  <ShieldCheck className="h-5 w-5 text-[#15FF00] ml-2" />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -686,15 +882,133 @@ export default function CheckoutPage() {
 
           {/* SEÇÃO DE DEPOIMENTOS */}
           <div className="w-full space-y-6 pt-4">
-            <h2 className="text-2xl font-bold text-center text-[#15FF00] text-glow-green">
-              O que nossos clientes dizem
-            </h2>
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-bold text-[#15FF00] text-glow-green flex items-center justify-center gap-3">
+                <img src="/whatsapp-testimonials.png" alt="WhatsApp" className="h-8 w-8" />O QUE NOSSOS CLIENTES DIZEM
+                <img src="/whatsapp-testimonials.png" alt="WhatsApp" className="h-8 w-8" />
+              </h2>
+              <div className="flex items-center justify-center space-x-4">
+                <div className="flex items-center bg-green-500/20 border border-green-500/50 rounded-full px-3 py-1">
+                  <ShieldCheck className="h-4 w-4 text-[#15FF00] mr-2" />
+                  <span className="text-xs font-bold text-[#15FF00]">100% Verificado</span>
+                </div>
+                <div className="flex items-center bg-green-500/20 border border-green-500/50 rounded-full px-3 py-1">
+                  <Star className="h-4 w-4 text-[#15FF00] mr-2 fill-[#15FF00]" />
+                  <span className="text-xs font-bold text-[#15FF00]">Avaliações Reais</span>
+                </div>
+              </div>
+            </div>
             <TestimonialCarousel />
+
+            {/* Updated verification text */}
+            <div className="text-center space-y-2">
+              <p className="text-xs text-muted-foreground">
+                ✅ Todas as avaliações são verificadas e autenticadas •
+                <span className="text-[#15FF00] font-bold"> +15.000 clientes satisfeitos</span>
+              </p>
+              <div className="flex items-center justify-center space-x-4 text-xs text-muted-foreground">
+                <div className="flex items-center">
+                  <ShieldCheck className="h-3 w-3 text-[#15FF00] mr-1" />
+                  <span>Identidade verificada</span>
+                </div>
+                <div className="flex items-center">
+                  <Star className="h-3 w-3 text-[#15FF00] mr-1 fill-[#15FF00]" />
+                  <span>Compra confirmada</span>
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* MODAIS - Mantendo os mesmos modais existentes */}
+      {/* POP-UP DE DESAFIO BÔNUS - ENTRADA */}
+      {showEntryBonus && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[60] animate-in fade-in-0 zoom-in-95">
+          <Card className="w-full max-w-md bg-gradient-to-br from-green-900/20 to-emerald-900/20 border border-green-500/50 text-card-foreground">
+            <CardContent className="p-6 space-y-4">
+              {/* Timer do desafio */}
+              <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Clock className="h-5 w-5 text-[#15FF00] mr-2" />
+                  <span className="text-[#15FF00] font-bold text-lg">
+                    Desafio acaba em {formatEntryBonusTime(entryBonusTimeLeft)} minutos
+                  </span>
+                </div>
+                <div className="w-full bg-green-900/30 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-[#15FF00] to-green-400 h-2 rounded-full transition-all duration-1000"
+                    style={{ width: `${(entryBonusTimeLeft / 300) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="text-center space-y-4">
+                <div className="flex justify-center mb-2">
+                  <img src="/whatsapp-challenge.png" alt="WhatsApp" className="w-16 h-16" />
+                </div>
+                <h2 className="text-2xl font-bold text-[#15FF00] text-glow-green">🚀DESAFIO SECRETO ATIVADO!</h2>
+
+                <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-4 space-y-3">
+                  <p className="text-foreground font-semibold text-lg leading-tight">
+                    <span className="text-[#15FF00]">MISSÃO:</span> Pague seu PIX em até 5 minutos
+                  </p>
+
+                  <div className="bg-green-900/20 border border-green-500/30 rounded p-3">
+                    <p className="text-[#15FF00] font-bold text-center">🎁 RECOMPENSA: +1 Relatório Extra GRÁTIS</p>
+                    <p className="text-sm text-muted-foreground text-center mt-1">
+                      Descubra ainda mais segredos com análise dupla
+                    </p>
+                  </div>
+
+                  <p className="text-red-500 font-bold text-center animate-pulse text-lg">
+                    ⏰ Apenas quem quer saber a verdade rápido ganham essa recompensa!
+                  </p>
+                </div>
+
+                <div className="bg-muted/10 rounded-lg p-3 border border-border">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <Zap className="h-4 w-4 text-yellow-500" />
+                    <span className="text-yellow-500 font-bold text-sm">O que você ganha:</span>
+                  </div>
+                  <div className="text-left space-y-1 text-sm text-muted-foreground">
+                    <p>✅ Relatório principal completo</p>
+                    <p>✅ +1 Relatório bônus (mesmo valor)</p>
+                    <p>✅ Análise dupla de segurança</p>
+                    <p>✅ Mais dados para descobrir a verdade</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <Button
+                  onClick={() => {
+                    console.log("Botão clicado - fechando pop-up")
+                    setShowEntryBonus(false)
+                    setEntryBonusAccepted(true)
+                  }}
+                  className="w-full py-4 px-12 text-lg font-bold bg-transparent border-2 border-[#15FF00] text-[#15FF00] hover:bg-[#15FF00]/10 animate-pulse relative overflow-hidden group"
+                  style={{
+                    boxShadow: "0 0 20px rgba(21, 255, 0, 0.5), inset 0 0 20px rgba(21, 255, 0, 0.1)",
+                    textShadow: "0 0 10px rgba(21, 255, 0, 0.8)",
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#15FF00]/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  <div className="flex items-center justify-center relative z-10">
+                    <img src="/whatsapp-challenge.png" alt="WhatsApp" className="w-5 h-5 mr-3 relative z-10" />
+                    <span className="relative z-10 text-center">SABER DE TODA A VERDADE AGORA</span>
+                  </div>
+                </Button>
+              </div>
+
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">🎯 Desafio disponível apenas uma vez</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* MODAIS EXISTENTES - Mantendo todos os modais anteriores */}
       {showInstructions && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md bg-background text-foreground max-h-[90vh] overflow-y-auto border border-border">
@@ -1029,7 +1343,7 @@ export default function CheckoutPage() {
                     Análise completa de redes sociais + histórico de 3 meses
                   </p>
                   <div className="flex items-center justify-center mt-2 gap-3">
-                    <span className="text-xl font-bold text-muted-foreground line-through">R$9,90</span>
+                    <span className="text-xl font-bold text-muted-foreground line-through">R$19,90</span>
                     <span className="text-2xl font-extrabold text-[#15FF00] bg-green-400/20 px-3 py-1 rounded-full border border-green-400/50 animate-pulse">
                       GRÁTIS
                     </span>
@@ -1071,7 +1385,7 @@ export default function CheckoutPage() {
                     variant="ghost"
                     className="text-xs text-muted-foreground hover:text-foreground"
                   >
-                    Fechar (continuar sem bônus)
+                    Fechar
                   </Button>
                 </div>
               </div>
@@ -1079,7 +1393,139 @@ export default function CheckoutPage() {
           </Card>
         </div>
       )}
+
+      {/* POP-UP DE ALERTA APÓS 60 SEGUNDOS */}
+      {showTimeAlert && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[70] animate-in fade-in-0 zoom-in-95">
+          <Card className="w-full max-w-md bg-gradient-to-br from-red-900/20 to-orange-900/20 border border-red-500/50 text-card-foreground">
+            <CardContent className="p-6 space-y-4">
+              {/* Timer de urgência */}
+              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Clock className="h-5 w-5 text-red-500 mr-2 animate-pulse" />
+                  <span className="text-red-500 font-bold text-lg animate-pulse">
+                    ⚠️ TEMPO ESGOTANDO: {formatTime(timeLeft)} restantes!
+                  </span>
+                </div>
+                <div className="w-full bg-red-900/30 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-red-500 to-orange-400 h-2 rounded-full transition-all duration-1000 animate-pulse"
+                    style={{ width: `${(timeLeft / 300) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="text-center space-y-4">
+                <div className="flex justify-center mb-2">
+                  <div className="text-4xl animate-bounce">⏰</div>
+                </div>
+                <h2 className="text-2xl font-bold text-red-500 animate-pulse">🚨 ÚLTIMA CHANCE!</h2>
+
+                <div className="bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20 rounded-lg p-4 space-y-3">
+                  <p className="text-foreground font-semibold text-lg leading-tight">
+                    <span className="text-red-500">ATENÇÃO:</span> Você ainda não gerou seu PIX!
+                  </p>
+
+                  <div className="bg-red-900/20 border border-red-500/30 rounded p-3">
+                    <p className="text-yellow-500 font-bold text-center">🎁 RECOMPENSA AINDA DISPONÍVEL!</p>
+                    <p className="text-sm text-muted-foreground text-center mt-1">
+                      Gere seu PIX AGORA e ganhe +1 Relatório Extra GRÁTIS
+                    </p>
+                  </div>
+
+                  <p className="text-orange-500 font-bold text-center text-lg">
+                    ⚡ Restam apenas {formatTime(timeLeft)} minutos para garantir sua recompensa!
+                  </p>
+                </div>
+
+                <div className="bg-muted/10 rounded-lg p-3 border border-border">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <Zap className="h-4 w-4 text-yellow-500" />
+                    <span className="text-yellow-500 font-bold text-sm">O que você está perdendo:</span>
+                  </div>
+                  <div className="text-left space-y-1 text-sm text-muted-foreground">
+                    <p>❌ Relatório principal completo</p>
+                    <p>❌ +1 Relatório bônus (mesmo valor)</p>
+                    <p>❌ Análise dupla de segurança</p>
+                    <p>❌ Desconto especial por tempo limitado</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Button
+                  onClick={() => {
+                    setShowTimeAlert(false)
+                    // Scroll para o campo de email
+                    document.getElementById("customerEmail")?.scrollIntoView({ behavior: "smooth" })
+                    document.getElementById("customerEmail")?.focus()
+                  }}
+                  className="w-full py-4 px-12 text-lg font-bold bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white animate-pulse relative overflow-hidden group"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  <div className="flex items-center justify-center relative z-10">
+                    <Clock className="w-5 h-5 mr-3 relative z-10" />
+                    <span className="relative z-10 text-center">GERAR PIX AGORA E GARANTIR BÔNUS</span>
+                  </div>
+                </Button>
+              </div>
+
+              <div className="text-center">
+                <p className="text-xs text-red-400 animate-pulse">
+                  🔥 Esta é sua última chance de garantir a recompensa!
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
+  )
+}
+
+function TestimonialCard({ name, text }: { name: string; text: string }) {
+  return (
+    <Card className="bg-muted/20 border border-border">
+      <CardContent className="p-3 space-y-3">
+        {/* Header with stars and verification */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-1">
+            {[...Array(5)].map((_, i) => (
+              <Star key={i} className="h-4 w-4 fill-yellow-500 text-yellow-500" />
+            ))}
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="bg-[#15FF00] text-black text-xs px-2 py-1 rounded-full font-bold flex items-center">
+              <ShieldCheck className="h-3 w-3 mr-1 text-black" />
+              Verificado
+            </div>
+          </div>
+        </div>
+
+        {/* Review text */}
+        <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
+
+        {/* Footer with name and trust badges */}
+        <div className="flex items-center justify-between pt-2 border-t border-border/50">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+              {name.charAt(0)}
+            </div>
+            <div>
+              <p className="text-xs font-bold text-foreground">{name}</p>
+              <p className="text-xs text-muted-foreground">Cliente verificado</p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-1">
+            <div className="bg-green-500/20 border border-green-500/50 text-green-500 text-xs px-2 py-1 rounded-full font-bold flex items-center">
+              <Star className="h-3 w-3 mr-1 fill-green-500" />
+              Original
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -1156,13 +1602,12 @@ function TestimonialCarousel() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % testimonials.length)
-    }, 10000)
-
+    }, 10_000)
     return () => clearInterval(interval)
   }, [testimonials.length])
 
   const getVisibleTestimonials = () => {
-    const visible = []
+    const visible: typeof testimonials = []
     for (let i = 0; i < 3; i++) {
       const index = (currentIndex + i) % testimonials.length
       visible.push(testimonials[index])
@@ -1173,18 +1618,18 @@ function TestimonialCarousel() {
   return (
     <div className="space-y-4">
       <div className="grid gap-4">
-        {getVisibleTestimonials().map((testimonial, index) => (
-          <TestimonialCard key={`${currentIndex}-${index}`} name={testimonial.name} text={testimonial.text} />
+        {getVisibleTestimonials().map((t, idx) => (
+          <TestimonialCard key={`${currentIndex}-${idx}`} name={t.name} text={t.text} />
         ))}
       </div>
 
       <div className="flex justify-center space-x-2">
-        {Array.from({ length: Math.ceil(testimonials.length / 3) }).map((_, index) => (
+        {Array.from({ length: Math.ceil(testimonials.length / 3) }).map((_, idx) => (
           <button
-            key={index}
-            onClick={() => setCurrentIndex(index * 3)}
+            key={idx}
+            onClick={() => setCurrentIndex(idx * 3)}
             className={`w-2 h-2 rounded-full transition-colors ${
-              Math.floor(currentIndex / 3) === index ? "bg-[#15FF00]" : "bg-muted-foreground/30"
+              Math.floor(currentIndex / 3) === idx ? "bg-[#15FF00]" : "bg-muted-foreground/30"
             }`}
           />
         ))}
@@ -1196,24 +1641,8 @@ function TestimonialCarousel() {
 function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   return (
     <div className="flex flex-col items-center">
-      <span className="text-pink-500 text-3xl font-bold">{value}</span>
-      <span className="text-muted-foreground text-sm">{label}</span>
+      <span className="text-2xl font-bold text-foreground">{value}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
     </div>
-  )
-}
-
-function TestimonialCard({ name, text }: { name: string; text: string }) {
-  return (
-    <Card className="p-4 bg-card shadow-sm rounded-lg border border-border">
-      <CardContent className="p-0">
-        <div className="flex items-center mb-2">
-          {[...Array(5)].map((_, i) => (
-            <Star key={i} className="h-5 w-5 fill-yellow-500 text-yellow-500" />
-          ))}
-          <span className="font-semibold text-foreground ml-2">{name}</span>
-        </div>
-        <p className="text-muted-foreground italic text-sm">"{text}"</p>
-      </CardContent>
-    </Card>
   )
 }
