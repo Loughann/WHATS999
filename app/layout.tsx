@@ -16,6 +16,27 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* UTMify Scripts */}
+        <script
+          src="https://cdn.utmify.com.br/scripts/utms/latest.js"
+          data-utmify-prevent-xcod-sck
+          data-utmify-prevent-subids
+          async
+          defer
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.pixelId = "6859c44c8c3a8e69c4f45491";
+              var a = document.createElement("script");
+              a.setAttribute("async", "");
+              a.setAttribute("defer", "");
+              a.setAttribute("src", "https://cdn.utmify.com.br/scripts/pixel/pixel.js");
+              document.head.appendChild(a);
+            `,
+          }}
+        />
+
         {/* Facebook Pixel */}
         <script
           dangerouslySetInnerHTML={{

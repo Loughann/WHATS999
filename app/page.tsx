@@ -2,7 +2,7 @@
 
 import type * as React from "react"
 import { useState, useEffect, useRef } from "react"
-import { useRouter, useSearchParams } from "next/navigation" // Importar useRouter
+import { useRouter, useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -49,7 +49,7 @@ interface VerifyPixResponse {
 
 // -------- COMPONENTE --------
 export default function CheckoutPage() {
-  const router = useRouter() // Inicializar useRouter
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [pixCode, setPixCode] = useState<string | null>(null)
   const [transactionId, setTransactionId] = useState<string | null>(null)
@@ -61,13 +61,12 @@ export default function CheckoutPage() {
 
   const [customerEmail, setCustomerEmail] = useState("")
 
-  const itemTitle = "BLCKX7" // Nome do produto para a API
-  const itemPrice = 19.9 // Preço do produto
-  const totalAmount = 19.9 // Valor total do produto
+  const itemTitle = "BLCKX7"
+  const itemPrice = 19.9
+  const totalAmount = 19.9
 
-  const description = "Pagamento do BLCKX7" // Descrição para a API
+  const description = "Pagamento do BLCKX7"
 
-  // Adicionar novos estados para o modal de orderbumps
   const [showOrderBumps, setShowOrderBumps] = useState(false)
   const [selectedOrderBumps, setSelectedOrderBumps] = useState({
     investigacao: false,
@@ -75,49 +74,63 @@ export default function CheckoutPage() {
     relatorio: false,
   })
 
-  // Adicionar um novo estado para controlar o modal de instruções:
   const [showInstructions, setShowInstructions] = useState(false)
-
-  // Estado para o countdown de escassez
-  const [timeLeft, setTimeLeft] = useState(300) // 5 minutos
-  // Remover o estado isUrgent pois não será mais usado
-  // const [isUrgent, setIsUrgent] = useState(false)
-
+  const [timeLeft, setTimeLeft] = useState(300)
   const [currentTestimonial, setCurrentTestimonial] = useState(0)
-
-  // Adicionar um novo estado para controlar o pop-up de bônus após os outros estados:
   const [showBonusPopup, setShowBonusPopup] = useState(false)
-  const [bonusTimeLeft, setBonusTimeLeft] = useState(300) // 5 minutos em segundos
-  const [orderBumpTimeLeft, setOrderBumpTimeLeft] = useState(180) // 3 minutos em segundos
-
-  // Adicionar após os outros estados
+  const [bonusTimeLeft, setBonusTimeLeft] = useState(300)
+  const [orderBumpTimeLeft, setOrderBumpTimeLeft] = useState(180)
   const [bonusPopupShown, setBonusPopupShown] = useState(false)
   const [bonusPopupShownAfterCopy, setBonusPopupShownAfterCopy] = useState(false)
+  const [pixExpirationTime, setPixExpirationTime] = useState(600)
 
-  const [pixExpirationTime, setPixExpirationTime] = useState(600) // 10 minutos em segundos
+  // Função para disparar eventos de tracking
+  const trackEvent = (eventName: string, eventData?: any) => {
+    // Facebook Pixel - APENAS InitiateCheckout
+    if (typeof window !== "undefined" && (window as any).fbq) {
+      if (eventName === "InitiateCheckout") {
+        ;(window as any).fbq("track", "InitiateCheckout")
+      }
+      // Remover AddToCart e Purchase do Facebook Pixel
+    }
 
-  // Modificar a função handleGeneratePix para mostrar o modal primeiro
+    // UTMify - Manter todos os eventos
+    if (typeof window !== "undefined" && (window as any).pixel) {
+      if (eventName === "InitiateCheckout") {
+        ;(window as any).pixel("track", "InitiateCheckout")
+      } else if (eventName === "AddToCart") {
+        ;(window as any).pixel("track", "AddToCart", {
+          value: eventData?.value || 0,
+          currency: "BRL",
+        })
+      } else if (eventName === "Purchase") {
+        ;(window as any).pixel("track", "Purchase", {
+          value: eventData?.value || 0,
+          currency: "BRL",
+          transaction_id: eventData?.transaction_id || "",
+        })
+      }
+    }
+  }
+
   async function handleGeneratePix() {
     if (!customerEmail) {
       alert("Por favor, insira seu e-mail.")
       return
     }
 
-    // Mostrar modal de orderbumps primeiro
-    setOrderBumpTimeLeft(180) // Reset para 3 minutos
+    setOrderBumpTimeLeft(180)
     setShowOrderBumps(true)
   }
 
-  // Nova função para processar o PIX após seleção dos orderbumps
   async function processPixGeneration() {
     setShowOrderBumps(false)
     setIsLoadingPix(true)
     setPixCode(null)
     setTransactionId(null)
     setPaymentStatus(null)
-    setPixExpirationTime(600) // Reset para 10 minutos
+    setPixExpirationTime(600)
 
-    // Calcular valor total baseado nos orderbumps selecionados
     let finalAmount = totalAmount
     if (selectedOrderBumps.investigacao) {
       finalAmount += 11.9
@@ -162,14 +175,14 @@ export default function CheckoutPage() {
       setTransactionId(data.transactionId)
       setPaymentStatus("pending")
 
-      // Dispara evento AddToCart
-      // if (typeof window !== "undefined" && (window as any).fbq) {
-      //   ;(window as any).fbq("track", "AddToCart", {
-      //     value: finalAmount,
-      //     currency: "BRL",
-      //     content_name: "WHATS ESPIÃO",
-      //   })
-      // }
+      // 🎯 TRACKING: AddToCart quando PIX é gerado
+      trackEvent("AddToCart", {
+        value: finalAmount,
+        currency: "BRL",
+        content_name: "WHATS ESPIÃO",
+        content_ids: ["whats-espiao"],
+        content_type: "product",
+      })
     } catch (err) {
       console.error(err)
       alert("Erro ao gerar PIX.")
@@ -191,22 +204,23 @@ export default function CheckoutPage() {
       const data: VerifyPixResponse = await res.json()
       setPaymentStatus(data.status)
 
-      // Dispara o evento Purchase ao confirmar o pagamento como concluído
-      // if (data.status === "completed" && typeof window !== "undefined" && (window as any).fbq) {
-      //   // Calcular valor total incluindo orderbumps
-      //   const finalAmount =
-      //     totalAmount +
-      //     (selectedOrderBumps.investigacao ? 9.9 : 0) +
-      //     (selectedOrderBumps.localizacao ? 6.9 : 0) +
-      //     (selectedOrderBumps.relatorio ? 14.9 : 0)
-      //   ;(window as any).fbq("track", "Purchase", {
-      //     value: finalAmount,
-      //     currency: "BRL",
-      //     content_name: "WHATS ESPIÃO",
-      //     content_ids: ["whats-espiao"],
-      //     content_type: "product",
-      //   })
-      // }
+      // 🎯 TRACKING: Purchase quando pagamento é aprovado
+      if (data.status === "completed") {
+        const finalAmount =
+          totalAmount +
+          (selectedOrderBumps.investigacao ? 11.9 : 0) +
+          (selectedOrderBumps.localizacao ? 6.9 : 0) +
+          (selectedOrderBumps.relatorio ? 7.9 : 0)
+
+        trackEvent("Purchase", {
+          value: finalAmount,
+          currency: "BRL",
+          content_name: "WHATS ESPIÃO",
+          content_ids: ["whats-espiao"],
+          content_type: "product",
+          transaction_id: paymentId,
+        })
+      }
     } catch (err) {
       console.error(err)
       setPaymentStatus("failed")
@@ -216,16 +230,13 @@ export default function CheckoutPage() {
   }
 
   useEffect(() => {
-    // Dispara o evento InitiateCheckout quando o componente é montado
-    if (typeof window !== "undefined" && (window as any).fbq) {
-      ;(window as any).fbq("track", "InitiateCheckout")
-    }
+    // 🎯 TRACKING: InitiateCheckout quando página carrega
+    trackEvent("InitiateCheckout")
 
     if (transactionId && paymentStatus === "pending") {
       intervalRef.current = setInterval(() => handleVerifyPix(transactionId), 4000)
     }
     if (paymentStatus === "completed") {
-      // Redireciona diretamente para o link externo quando o pagamento é concluído
       window.location.href = "https://premiumespiao.netlify.app"
       if (intervalRef.current) clearInterval(intervalRef.current)
     } else if (paymentStatus !== "pending" && intervalRef.current) {
@@ -236,7 +247,6 @@ export default function CheckoutPage() {
     }
   }, [transactionId, paymentStatus, router])
 
-  // Simplificar o useEffect do countdown removendo a lógica de urgência
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -251,23 +261,20 @@ export default function CheckoutPage() {
     return () => clearInterval(timer)
   }, [])
 
-  // Função para iniciar o timer do pop-up de bônus
   const startBonusTimer = () => {
     if (bonusTimerRef.current) {
       clearTimeout(bonusTimerRef.current)
     }
 
     bonusTimerRef.current = setTimeout(() => {
-      // Verificar se o usuário ainda está na página e não está com o modal de instruções aberto
       if (document.visibilityState === "visible" && !showInstructions && !bonusPopupShown) {
-        setBonusTimeLeft(300) // Reset para 5 minutos
+        setBonusTimeLeft(300)
         setShowBonusPopup(true)
-        setBonusPopupShown(true) // Marcar que o pop-up foi mostrado
+        setBonusPopupShown(true)
       }
-    }, 12000) // 12 segundos
+    }, 12000)
   }
 
-  // Função para parar o timer do pop-up de bônus
   const stopBonusTimer = () => {
     if (bonusTimerRef.current) {
       clearTimeout(bonusTimerRef.current)
@@ -275,23 +282,18 @@ export default function CheckoutPage() {
     }
   }
 
-  // Pop-up de bônus com controle de visibilidade da página
   useEffect(() => {
     if (pixCode && paymentStatus === "pending" && !showInstructions && !bonusPopupShown && !bonusPopupShownAfterCopy) {
-      // Iniciar o timer apenas se a página estiver visível
       if (document.visibilityState === "visible") {
         startBonusTimer()
       }
 
-      // Listener para mudanças de visibilidade da página
       const handleVisibilityChange = () => {
         if (document.visibilityState === "visible") {
-          // Página ficou visível - iniciar timer se não estiver com modal de instruções aberto
           if (!showInstructions && !showBonusPopup && !bonusPopupShown && !bonusPopupShownAfterCopy) {
             startBonusTimer()
           }
         } else {
-          // Página ficou oculta - parar timer
           stopBonusTimer()
         }
       }
@@ -307,13 +309,12 @@ export default function CheckoutPage() {
     }
   }, [pixCode, paymentStatus, showInstructions, showBonusPopup, bonusPopupShown, bonusPopupShownAfterCopy])
 
-  // Countdown do pop-up de bônus
   useEffect(() => {
     if (showBonusPopup && bonusTimeLeft > 0) {
       const timer = setInterval(() => {
         setBonusTimeLeft((prev) => {
           if (prev <= 1) {
-            setShowBonusPopup(false) // Fecha o pop-up quando o tempo acaba
+            setShowBonusPopup(false)
             return 0
           }
           return prev - 1
@@ -324,14 +325,13 @@ export default function CheckoutPage() {
     }
   }, [showBonusPopup, bonusTimeLeft])
 
-  // Countdown do orderbump
   useEffect(() => {
     if (showOrderBumps && orderBumpTimeLeft > 0) {
       const timer = setInterval(() => {
         setOrderBumpTimeLeft((prev) => {
           if (prev <= 1) {
-            setShowOrderBumps(false) // Fecha o modal quando o tempo acaba
-            processPixGeneration() // Continua sem orderbumps
+            setShowOrderBumps(false)
+            processPixGeneration()
             return 0
           }
           return prev - 1
@@ -342,7 +342,6 @@ export default function CheckoutPage() {
     }
   }, [showOrderBumps, orderBumpTimeLeft])
 
-  // Countdown do PIX (10 minutos)
   useEffect(() => {
     if (pixCode && pixExpirationTime > 0) {
       const timer = setInterval(() => {
@@ -359,49 +358,40 @@ export default function CheckoutPage() {
     }
   }, [pixCode, pixExpirationTime])
 
-  // Função para formatar o tempo
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
-  // Função para formatar o tempo do bônus
   const formatBonusTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  // Função para formatar o tempo do orderbump
   const formatOrderBumpTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  // Função para formatar o tempo do PIX
   const formatPixTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  // Função para calcular ofertas disponíveis da primeira oferta - começar com 8
   const getAvailableOffersInvestigacao = () => {
-    const totalTime = 180 // 3 minutos
+    const totalTime = 180
     const timeElapsed = totalTime - orderBumpTimeLeft
 
-    // Lógica de diminuição rápida no início e lenta no final
     let offersReduction = 0
 
-    // Diminui de 8 para 3 ofertas (5 ofertas reduzidas)
     if (timeElapsed <= 30) {
-      // Primeiros 30 segundos: diminui a cada 6 segundos
       offersReduction = Math.floor(timeElapsed / 6)
     } else {
-      // Depois que chega em 3/10: diminui a cada 10 segundos
-      const fastReduction = Math.floor(30 / 6) // 5 ofertas nos primeiros 30s
+      const fastReduction = Math.floor(30 / 6)
       const slowTimeElapsed = timeElapsed - 30
       const slowReduction = Math.floor(slowTimeElapsed / 10)
       offersReduction = fastReduction + slowReduction
@@ -411,21 +401,16 @@ export default function CheckoutPage() {
     return availableOffers
   }
 
-  // Função para calcular ofertas disponíveis da segunda oferta - começar com 9
   const getAvailableOffersLocalizacao = () => {
-    const totalTime = 180 // 3 minutos
+    const totalTime = 180
     const timeElapsed = totalTime - orderBumpTimeLeft
 
-    // Lógica de diminuição rápida no início e lenta no final
     let offersReduction = 0
 
-    // Diminui de 9 para 4 ofertas (5 ofertas reduzidas)
     if (timeElapsed <= 50) {
-      // Primeiros 50 segundos: diminui a cada 10 segundos
       offersReduction = Math.floor(timeElapsed / 10)
     } else {
-      // Depois que chega em 4/10: diminui a cada 25 segundos
-      const fastReduction = Math.floor(50 / 10) // 5 ofertas nos primeiros 50s
+      const fastReduction = Math.floor(50 / 10)
       const slowTimeElapsed = timeElapsed - 50
       const slowReduction = Math.floor(slowTimeElapsed / 25)
       offersReduction = fastReduction + slowReduction
@@ -435,21 +420,16 @@ export default function CheckoutPage() {
     return availableOffers
   }
 
-  // Função para calcular ofertas disponíveis da terceira oferta - começar com 7
   const getAvailableOffersRelatorio = () => {
-    const totalTime = 180 // 3 minutos
+    const totalTime = 180
     const timeElapsed = totalTime - orderBumpTimeLeft
 
-    // Lógica de diminuição rápida no início e lenta no final
     let offersReduction = 0
 
-    // Diminui de 7 para 2 ofertas (5 ofertas reduzidas)
     if (timeElapsed <= 45) {
-      // Primeiros 45 segundos: diminui a cada 9 segundos
       offersReduction = Math.floor(timeElapsed / 9)
     } else {
-      // Depois que chega em 2/10: diminui a cada 15 segundos
-      const fastReduction = Math.floor(45 / 9) // 5 ofertas nos primeiros 45s
+      const fastReduction = Math.floor(45 / 9)
       const slowTimeElapsed = timeElapsed - 45
       const slowReduction = Math.floor(slowTimeElapsed / 15)
       offersReduction = fastReduction + slowReduction
@@ -493,8 +473,7 @@ export default function CheckoutPage() {
         <CardContent className="p-6 space-y-8">
           {/* HEADER */}
           <div className="text-center">
-            <h1 className="text-6xl font-extrabold uppercase text-[#15FF00] text-glow-green mb-2">{"WHATS ESPIÃO"}</h1>{" "}
-            {/* Título exibido */}
+            <h1 className="text-6xl font-extrabold uppercase text-[#15FF00] text-glow-green mb-2">{"WHATS ESPIÃO"}</h1>
             <p className="text-4xl font-extrabold text-pink-500 mb-2">R$ {totalAmount.toFixed(2).replace(".", ",")}</p>
             <p className="text-sm text-muted">Desconto especial até {new Date().toLocaleDateString("pt-BR")}</p>
           </div>
@@ -548,7 +527,6 @@ export default function CheckoutPage() {
             </h2>
 
             <Label className="text-foreground font-medium mb-2 block">Método de Pagamento</Label>
-            {/* Ajustado para ter a mesma aparência do campo de e-mail */}
             <div className="w-full flex justify-start items-center border border-border font-normal py-2 px-3 rounded-md bg-white text-black mt-1">
               <Square className="h-5 w-5 fill-green-500 text-green-500 mr-3" />
               PIX - Pagamento Instantâneo
@@ -561,7 +539,6 @@ export default function CheckoutPage() {
               <Loader2 className="h-8 w-8 animate-spin text-green-600" />
             ) : pixCode ? (
               <div className="space-y-3 w-full">
-                {/* Novas informações e botão de copiar */}
                 <p className="text-center text-muted-foreground text-sm">
                   Escaneie o código QR com seu app do banco ou copie o código PIX
                 </p>
@@ -574,7 +551,6 @@ export default function CheckoutPage() {
                     Como fazer pagamento?
                   </Button>
                 )}
-                {/* Fim das novas informações */}
 
                 <div className="flex flex-col items-center">
                   <QRCode value={pixCode} size={150} level="H" />
@@ -592,12 +568,10 @@ export default function CheckoutPage() {
                       .toFixed(2)
                       .replace(".", ",")}
                   </p>
-                  {/* Novo elemento de status */}
                   <div className="flex items-center justify-center border border-border rounded-full px-4 py-2 mt-2 bg-muted/20">
                     <Clock className="h-4 w-4 text-muted-foreground mr-2" />
                     <span className="text-sm text-muted-foreground">Status: Aguardando Pagamento</span>
                   </div>
-                  {/* Fim do novo elemento de status */}
                   <Button
                     variant="outline"
                     className="w-full justify-center border border-border font-semibold py-2 px-4 rounded-md bg-white text-black animate-pulse mt-4"
@@ -605,16 +579,15 @@ export default function CheckoutPage() {
                       navigator.clipboard.writeText(pixCode)
                       alert("Código Pix copiado!")
 
-                      // Iniciar timer para mostrar pop-up após copiar (apenas se ainda não foi mostrado)
                       if (!bonusPopupShown && !bonusPopupShownAfterCopy) {
                         setBonusPopupShownAfterCopy(true)
                         setTimeout(() => {
                           if (document.visibilityState === "visible" && !showInstructions && !showBonusPopup) {
-                            setBonusTimeLeft(300) // Reset para 5 minutos
+                            setBonusTimeLeft(300)
                             setShowBonusPopup(true)
-                            setBonusPopupShown(true) // Marcar que o pop-up foi mostrado
+                            setBonusPopupShown(true)
                           }
-                        }, 7000) // 7 segundos após copiar
+                        }, 7000)
                       }
                     }}
                   >
@@ -657,10 +630,10 @@ export default function CheckoutPage() {
               value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
               required
-              disabled={pixCode !== null} // Bloqueia o campo quando o PIX é gerado
+              disabled={pixCode !== null}
               className={`bg-white border-border text-black mt-1 placeholder:text-gray-600 ${
                 !customerEmail && !pixCode && paymentStatus !== "completed" ? "border-red-500" : ""
-              } ${pixCode !== null ? "opacity-50 cursor-not-allowed" : ""}`} // Adiciona estilo visual quando bloqueado
+              } ${pixCode !== null ? "opacity-50 cursor-not-allowed" : ""}`}
             />
             <p className="text-xs text-muted-foreground mt-1">
               Precisamos apenas do seu e-mail para enviar o relatório completo de forma segura e anônima
@@ -670,7 +643,7 @@ export default function CheckoutPage() {
           {/* BOTÃO PRINCIPAL */}
           <Button
             onClick={handleGeneratePix}
-            disabled={isLoadingPix || paymentStatus === "completed" || !customerEmail || pixCode !== null} // Adiciona pixCode !== null
+            disabled={isLoadingPix || paymentStatus === "completed" || !customerEmail || pixCode !== null}
             className={`w-full py-6 text-lg font-bold bg-gradient-to-r from-[#25D366] to-[#15FF00] hover:from-[#25D366]/90 hover:to-[#15FF00]/90 text-white ${
               !isLoadingPix && paymentStatus !== "completed" && customerEmail && pixCode === null
                 ? "animate-pulse-green"
@@ -690,7 +663,7 @@ export default function CheckoutPage() {
             )}
           </Button>
 
-          {/* SEÇÃO DE SEGURANÇA AGORA DENTRO DO CARD */}
+          {/* SEÇÃO DE SEGURANÇA */}
           <div className="text-center mt-4">
             <p className="text-muted-foreground text-sm flex items-center justify-center">
               <ShieldCheck className="h-4 w-4 text-muted mr-1" />
@@ -699,7 +672,7 @@ export default function CheckoutPage() {
             <p className="text-xs text-muted-foreground mt-1">Seus dados estão protegidos por SSL de 256 bits</p>
           </div>
 
-          {/* SEÇÃO DE DEPOIMENTOS AGORA DENTRO DO CARD */}
+          {/* SEÇÃO DE DEPOIMENTOS */}
           <div className="w-full space-y-6 pt-4">
             <h2 className="text-2xl font-bold text-center text-[#15FF00] text-glow-green">
               O que nossos clientes dizem
@@ -708,6 +681,8 @@ export default function CheckoutPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* MODAIS - Mantendo os mesmos modais existentes */}
       {showInstructions && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md bg-background text-foreground max-h-[90vh] overflow-y-auto border border-border">
@@ -780,16 +755,15 @@ export default function CheckoutPage() {
                     navigator.clipboard.writeText(pixCode!)
                     alert("Código PIX copiado!")
 
-                    // Iniciar timer para mostrar pop-up após copiar (apenas se ainda não foi mostrado)
                     if (!bonusPopupShown && !bonusPopupShownAfterCopy) {
                       setBonusPopupShownAfterCopy(true)
                       setTimeout(() => {
                         if (document.visibilityState === "visible" && !showInstructions && !showBonusPopup) {
-                          setBonusTimeLeft(300) // Reset para 5 minutos
+                          setBonusTimeLeft(300)
                           setShowBonusPopup(true)
-                          setBonusPopupShown(true) // Marcar que o pop-up foi mostrado
+                          setBonusPopupShown(true)
                         }
-                      }, 7000) // 7 segundos após copiar
+                      }, 7000)
                     }
                   }}
                   className="w-full py-3 text-lg font-bold bg-gradient-to-r from-[#25D366] to-[#15FF00] hover:from-[#25D366]/90 hover:to-[#15FF00]/90 text-black animate-pulse-green"
@@ -808,11 +782,11 @@ export default function CheckoutPage() {
           </Card>
         </div>
       )}
+
       {showOrderBumps && (
         <div className="fixed inset-0 bg-black/80 flex items-start justify-center p-2 z-50 overflow-y-auto">
           <Card className="w-full max-w-md bg-card text-card-foreground mt-4 mb-4">
             <CardContent className="p-4 space-y-4">
-              {/* Barra de escassez no topo */}
               <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 text-center">
                 <div className="flex items-center justify-center mb-2">
                   <Clock className="h-4 w-4 text-[#15FF00] mr-2" />
@@ -827,7 +801,6 @@ export default function CheckoutPage() {
                 <p className="text-muted-foreground text-xs">Aproveite essas ofertas exclusivas antes de finalizar</p>
               </div>
 
-              {/* Primeiro OrderBump */}
               <div className="border border-border rounded-lg p-3 space-y-2">
                 <div className="flex items-start space-x-2">
                   <input
@@ -868,7 +841,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Segundo OrderBump */}
               <div className="border border-border rounded-lg p-3 space-y-2">
                 <div className="flex items-start space-x-2">
                   <input
@@ -909,7 +881,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Terceiro OrderBump */}
               <div className="border border-border rounded-lg p-3 space-y-2">
                 <div className="flex items-start space-x-2">
                   <input
@@ -949,7 +920,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Resumo do pedido - Compacto */}
               <div className="bg-muted/20 rounded-lg p-3">
                 <h4 className="font-bold text-foreground mb-2 text-sm">Resumo:</h4>
                 <div className="space-y-1 text-xs">
@@ -990,31 +960,9 @@ export default function CheckoutPage() {
                         .replace(".", ",")}
                     </span>
                   </div>
-                  {/* Seção de economia compacta */}
-                  {(selectedOrderBumps.investigacao ||
-                    selectedOrderBumps.localizacao ||
-                    selectedOrderBumps.relatorio) && (
-                    <>
-                      <hr className="border-border" />
-                      <div className="flex justify-between text-yellow-500 font-semibold text-xs">
-                        <span>💰 Economia:</span>
-                        <span>
-                          R${" "}
-                          {(
-                            (selectedOrderBumps.investigacao ? 108.0 : 0) +
-                            (selectedOrderBumps.localizacao ? 39.0 : 0) +
-                            (selectedOrderBumps.relatorio ? 18.0 : 0)
-                          )
-                            .toFixed(2)
-                            .replace(".", ",")}
-                        </span>
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
 
-              {/* Botões compactos */}
               <div className="space-y-2">
                 <Button
                   onClick={processPixGeneration}
@@ -1039,11 +987,11 @@ export default function CheckoutPage() {
           </Card>
         </div>
       )}
+
       {showBonusPopup && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md bg-card text-card-foreground border border-border animate-in fade-in-0 zoom-in-95">
             <CardContent className="p-6 space-y-4">
-              {/* Barra de escassez no topo */}
               <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 text-center">
                 <div className="flex items-center justify-center mb-2">
                   <Clock className="h-4 w-4 text-[#15FF00] mr-2" />
@@ -1051,7 +999,6 @@ export default function CheckoutPage() {
                     Oferta acaba em {formatBonusTime(bonusTimeLeft)} minutos
                   </span>
                 </div>
-                {/* Barra de progresso */}
                 <div className="w-full bg-green-900/30 rounded-full h-2">
                   <div
                     className="bg-gradient-to-r from-[#15FF00] to-green-400 h-2 rounded-full transition-all duration-1000"
@@ -1099,7 +1046,7 @@ export default function CheckoutPage() {
                   <p className="text-xs text-muted-foreground mb-2">
                     ⚡ Oferta válida apenas para pagamentos realizados até {(() => {
                       const now = new Date()
-                      const futureTime = new Date(now.getTime() + 5 * 60 * 1000) // +5 minutos
+                      const futureTime = new Date(now.getTime() + 5 * 60 * 1000)
                       return futureTime.toLocaleTimeString("pt-BR", {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -1124,7 +1071,6 @@ export default function CheckoutPage() {
   )
 }
 
-/** Componente do carrossel de depoimentos */
 function TestimonialCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0)
 
@@ -1195,16 +1141,14 @@ function TestimonialCarousel() {
     },
   ]
 
-  // Auto-rotação do carrossel
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % testimonials.length)
-    }, 10000) // Alterado de 7000 para 10000 (10 segundos)
+    }, 10000)
 
     return () => clearInterval(interval)
   }, [testimonials.length])
 
-  // Mostrar 3 depoimentos por vez
   const getVisibleTestimonials = () => {
     const visible = []
     for (let i = 0; i < 3; i++) {
@@ -1222,7 +1166,6 @@ function TestimonialCarousel() {
         ))}
       </div>
 
-      {/* Indicadores do carrossel */}
       <div className="flex justify-center space-x-2">
         {Array.from({ length: Math.ceil(testimonials.length / 3) }).map((_, index) => (
           <button
@@ -1238,7 +1181,6 @@ function TestimonialCarousel() {
   )
 }
 
-/** Componente auxiliar das estatísticas */
 function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   return (
     <div className="flex flex-col items-center">
@@ -1248,7 +1190,6 @@ function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   )
 }
 
-/** Componente auxiliar para os depoimentos */
 function TestimonialCard({ name, text }: { name: string; text: string }) {
   return (
     <Card className="p-4 bg-card shadow-sm rounded-lg border border-border">
