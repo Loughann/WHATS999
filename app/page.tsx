@@ -63,8 +63,9 @@ export default function CheckoutPage() {
   const [customerEmail, setCustomerEmail] = useState("")
 
   const itemTitle = "BLCKX7"
-  const itemPrice = 19.9
-  const totalAmount = 19.9
+  // Alterar as variáveis de preço no início do componente
+  const itemPrice = 14.9
+  const totalAmount = 14.9
 
   const description = "Pagamento do BLCKX7"
 
@@ -827,7 +828,10 @@ export default function CheckoutPage() {
 
           {/* COBRANÇA */}
           <div>
-            <h2 className="text-xl font-bold text-foreground mb-3">Envio do relatório completo</h2>
+            <h2 className="text-xl font-bold text-foreground mb-3 flex items-center">
+              Envio do relatório completo
+              <img src="/whatsapp-chat-icon.png" alt="Chat icon" className="h-5 w-5 ml-2" />
+            </h2>
             <Label htmlFor="customerEmail" className="text-foreground font-medium">
               E-mail *
             </Label>
@@ -1152,7 +1156,7 @@ export default function CheckoutPage() {
                       </p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <span className="text-muted-foreground line-through text-xs">De R$ 49,90</span>
-                        <span className="text-green-500 font-bold text-lg">R$ 19,90</span>
+                        <span className="text-green-500 font-bold text-lg">R$ 14,90</span>
                         <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">50% OFF</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
@@ -1231,7 +1235,7 @@ export default function CheckoutPage() {
                       </p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <span className="text-muted-foreground line-through text-xs">De R$ 25,90</span>
-                        <span className="text-green-500 font-bold text-lg">R$ 7,90</span>
+                        <span className="text-green-500 font-bold text-lg">R$ 7,00</span>
                         <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">69% OFF</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
@@ -1465,7 +1469,7 @@ export default function CheckoutPage() {
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                   <div className="flex items-center justify-center relative z-10">
                     <Clock className="w-5 h-5 mr-3 relative z-10" />
-                    <span className="relative z-10 text-center">GERAR PIX AGORA E GARANTIR BÔNUS</span>
+                    <span className="relative z-10 text-center">PAGAR AGORA E GARANTIR BÔNUS</span>
                   </div>
                 </Button>
               </div>
