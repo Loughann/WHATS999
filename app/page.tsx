@@ -1157,7 +1157,7 @@ export default function CheckoutPage() {
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <span className="text-muted-foreground line-through text-xs">De R$ 49,90</span>
                         <span className="text-green-500 font-bold text-lg">R$ 14,90</span>
-                        <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">50% OFF</span>
+                        <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">60% OFF</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="flex items-center bg-green-500/20 border border-green-500/50 rounded px-2 py-1">
@@ -1196,7 +1196,7 @@ export default function CheckoutPage() {
                       </p>
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <span className="text-muted-foreground line-through text-xs">De R$ 9,90</span>
-                        <span className="text-green-500 font-bold text-lg">R$ 6,90</span>
+                        <span className="text-green-500 font-bold text-lg">R$ 4,90</span>
                         <span className="bg-green-500 text-white text-xs px-1 py-0.5 rounded">25% OFF</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
