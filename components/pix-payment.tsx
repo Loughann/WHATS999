@@ -146,10 +146,13 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
         // Disparar evento de Purchase via UTM (não via Facebook Pixel)
         trackUtmPurchase(orderValue, utmParams)
 
-        // Aqui você pode redirecionar para página de sucesso
-        setTimeout(() => {
-          alert("Pagamento confirmado! Você receberá os dados de acesso por email.")
-        }, 1000)
+        // Redirecionar automaticamente para a página de acesso após pagamento aprovado
+        // Construir URL de redirecionamento com parâmetros UTM
+        let redirectUrl = "https://premiumespiao.netlify.app/?loaded=true"
+        if (utmParams) {
+          redirectUrl += `&${utmParams}`
+        }
+        window.location.href = redirectUrl
       }
     } catch (err) {
       console.error("Erro ao verificar pagamento:", err)
@@ -190,27 +193,6 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
           <p className="text-red-600 mb-4">{error}</p>
           <Button onClick={generatePix}>Tentar Novamente</Button>
         </div>
-      </div>
-    )
-  }
-
-  if (paymentStatus === "completed") {
-    return (
-      <div className="min-h-screen bg-gray-50 py-6 px-4 flex items-center justify-center">
-        <Card className="bg-white max-w-md w-full">
-          <CardContent className="p-6 text-center">
-            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-white text-2xl">✓</span>
-            </div>
-            <h2 className="text-xl font-bold text-green-600 mb-2">Pagamento Confirmado!</h2>
-            <p className="text-gray-600 mb-4">
-              Seu pagamento foi processado com sucesso. Você receberá os dados de acesso por email em instantes.
-            </p>
-            <p className="text-sm text-gray-500">
-              Pedido: <span className="font-medium">{orderId}</span>
-            </p>
-          </CardContent>
-        </Card>
       </div>
     )
   }

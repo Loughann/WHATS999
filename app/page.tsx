@@ -14,9 +14,9 @@ export default function CheckoutPage() {
     hasOrderBump: false,
   })
   const [formData, setFormData] = useState({
-    name: "Ex: Juliana Paes",
-    email: "Ex: juju7762@gmail.com",
-    phone: "Ex: 11980987756",
+    name: "",
+    email: "",
+    phone: "",
     paymentMethod: "pix",
   })
 
