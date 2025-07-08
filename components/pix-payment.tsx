@@ -38,6 +38,11 @@ const getUrlParams = () => {
   return params.join("&")
 }
 
+// Função para gerar CPF válido (apenas para exemplo - em produção use CPF real do cliente)
+const generateValidCPF = () => {
+  return "11144477735" // CPF válido para testes
+}
+
 export function PixPayment({ formData, orderValue }: PixPaymentProps) {
   const [timeLeft, setTimeLeft] = useState(15 * 60) // 15 minutos
   const [copied, setCopied] = useState(false)
@@ -82,10 +87,10 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
 
       const payload = {
         amount: Math.round(orderValue * 100), // Converter para centavos
-        description: "Whats Espião Acesso",
+        description: "Pix",
         customer: {
           name: formData.name,
-          document: "11111111111", // CPF padrão - você pode adicionar campo no form
+          document: generateValidCPF(), // CPF válido
           phone: formData.phone,
           email: formData.email,
         },
@@ -97,8 +102,10 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
         utm: utmParams || "checkout-espiao",
       }
 
+      console.log("Gerando PIX com payload:", payload)
+
       const response = await fetch(
-        "https://api-checkoutinho.up.railway.app/MYpqLDQvKaLsS48nHu3JTdUboixYawaX8kVBe_PkK1-1YI3VBFhcwDY_Vzk5z7izLWV4VC8sWYWcw54IBszEnw",
+        "https://api-checkoutinho.up.railway.app/1C36QB3oc7mI08Ja0q6HQt61qk1LYou-cor-7zNGVWfG_w8AQnI_Y4dN2AWYDWXRNRTvdYiIBeMC9sHzb2q5hQ",
         {
           method: "POST",
           headers: {
@@ -109,10 +116,13 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
       )
 
       if (!response.ok) {
-        throw new Error("Erro ao gerar PIX")
+        const errorText = await response.text()
+        console.error("Erro na resposta da API:", errorText)
+        throw new Error(`Erro ao gerar PIX: ${response.status}`)
       }
 
       const data: PixResponse = await response.json()
+      console.log("PIX gerado com sucesso:", data)
       setPixData(data)
     } catch (err) {
       setError("Erro ao gerar PIX. Tente novamente.")
@@ -124,6 +134,8 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
 
   const verifyPayment = async (transactionId: string) => {
     try {
+      console.log("Verificando pagamento para transactionId:", transactionId)
+
       const response = await fetch("https://api-checkoutinho.up.railway.app/verify", {
         method: "POST",
         headers: {
@@ -135,10 +147,12 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
       })
 
       if (!response.ok) {
-        throw new Error("Erro ao verificar pagamento")
+        console.error("Erro ao verificar pagamento:", response.status)
+        return
       }
 
       const data: PaymentStatus = await response.json()
+      console.log("Status do pagamento:", data)
 
       if (data.status === "completed") {
         setPaymentStatus("completed")
@@ -152,6 +166,8 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
         if (utmParams) {
           redirectUrl += `&${utmParams}`
         }
+
+        console.log("Redirecionando para:", redirectUrl)
         window.location.href = redirectUrl
       }
     } catch (err) {
@@ -365,6 +381,21 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
                 </div>
               </div>
             </div>
+
+            {/* Debug Info (remover em produção) */}
+            {pixData && (
+              <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-gray-600">
+                <p>
+                  <strong>Transaction ID:</strong> {pixData.transactionId}
+                </p>
+                <p>
+                  <strong>Status:</strong> {paymentStatus}
+                </p>
+                <p>
+                  <strong>UTM:</strong> {utmParams || "Nenhum"}
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
