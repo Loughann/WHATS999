@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Copy, ArrowRight, Loader2 } from "lucide-react"
-import { trackUtmPurchase } from "@/lib/facebook-pixel"
+import { Copy, ArrowRight, Loader2, ArrowLeft } from "lucide-react"
+import { trackUtmPurchase, trackPurchase, trackCustomEvent } from "@/lib/facebook-pixel"
 
 interface PixPaymentProps {
   formData: {
@@ -13,6 +13,7 @@ interface PixPaymentProps {
     phone: string
   }
   orderValue: number
+  onBackToCheckout?: () => void // Nova prop para voltar ao checkout
 }
 
 interface PixResponse {
@@ -38,17 +39,12 @@ const getUrlParams = () => {
   return params.join("&")
 }
 
-// Função para redirecionar com parâmetros UTM
-const redirectToSuccess = (utmParams: string) => {
-  const baseUrl = "https://premiumespiao.netlify.app/?loaded=true"
-  const finalUrl = utmParams ? `${baseUrl}&${utmParams}` : baseUrl
-
-  if (typeof window !== "undefined") {
-    window.location.href = finalUrl
-  }
+// Função para gerar CPF válido (apenas para exemplo - em produção use CPF real do cliente)
+const generateValidCPF = () => {
+  return "11144477735" // CPF válido para testes
 }
 
-export function PixPayment({ formData, orderValue }: PixPaymentProps) {
+export function PixPayment({ formData, orderValue, onBackToCheckout }: PixPaymentProps) {
   const [timeLeft, setTimeLeft] = useState(15 * 60) // 15 minutos
   const [copied, setCopied] = useState(false)
   const [pixData, setPixData] = useState<PixResponse | null>(null)
@@ -56,8 +52,19 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
   const [paymentStatus, setPaymentStatus] = useState<"pending" | "completed" | "expired">("pending")
   const [error, setError] = useState<string | null>(null)
   const [utmParams] = useState(getUrlParams()) // Captura os parâmetros uma vez
+  const [retryCount, setRetryCount] = useState(0)
 
   const orderId = `PIX${Date.now().toString().slice(-8)}`
+
+  // Track quando PIX é gerado
+  useEffect(() => {
+    trackCustomEvent("PIX_Generated", {
+      order_id: orderId,
+      value: orderValue,
+      customer_name: formData.name,
+      customer_email: formData.email,
+    })
+  }, [])
 
   // Gerar PIX ao carregar componente
   useEffect(() => {
@@ -71,6 +78,10 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
       return () => clearTimeout(timer)
     } else if (timeLeft === 0) {
       setPaymentStatus("expired")
+      trackCustomEvent("PIX_Expired", {
+        order_id: orderId,
+        value: orderValue,
+      })
     }
   }, [timeLeft, paymentStatus])
 
@@ -92,10 +103,10 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
 
       const payload = {
         amount: Math.round(orderValue * 100), // Converter para centavos
-        description: "Whats Espião Acesso",
+        description: "Pix",
         customer: {
           name: formData.name,
-          document: "11111111111", // CPF padrão - você pode adicionar campo no form
+          document: generateValidCPF(), // CPF válido
           phone: formData.phone,
           email: formData.email,
         },
@@ -107,8 +118,10 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
         utm: utmParams || "checkout-espiao",
       }
 
+      console.log("📊 Gerando PIX com payload:", payload)
+
       const response = await fetch(
-        "https://api-checkoutinho.up.railway.app/MYpqLDQvKaLsS48nHu3JTdUboixYawaX8kVBe_PkK1-1YI3VBFhcwDY_Vzk5z7izLWV4VC8sWYWcw54IBszEnw",
+        "https://api-checkoutinho.up.railway.app/1C36QB3oc7mI08Ja0q6HQt61qk1LYou-cor-7zNGVWfG_w8AQnI_Y4dN2AWYDWXRNRTvdYiIBeMC9sHzb2q5hQ",
         {
           method: "POST",
           headers: {
@@ -119,14 +132,57 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
       )
 
       if (!response.ok) {
-        throw new Error("Erro ao gerar PIX")
+        const errorText = await response.text()
+        console.error("❌ Erro na resposta da API:", errorText)
+        throw new Error(`Erro ao gerar PIX: ${response.status}`)
       }
 
       const data: PixResponse = await response.json()
+      console.log("✅ PIX gerado com sucesso:", data)
       setPixData(data)
+      setRetryCount(0) // Reset retry count on success
+
+      // Track PIX code gerado
+      trackCustomEvent("PIX_Code_Generated", {
+        transaction_id: data.transactionId,
+        order_id: orderId,
+        value: orderValue,
+      })
     } catch (err) {
-      setError("Erro ao gerar PIX. Tente novamente.")
-      console.error("Erro ao gerar PIX:", err)
+      const errorMessage = err instanceof Error ? err.message : "Erro desconhecido"
+      setError("Erro ao gerar PIX. Verifique os dados e tente novamente.")
+      console.error("❌ Erro ao gerar PIX:", err)
+
+      trackCustomEvent("PIX_Generation_Error", {
+        error: errorMessage,
+        order_id: orderId,
+        value: orderValue,
+        retry_count: retryCount,
+      })
+
+      setRetryCount((prev) => prev + 1)
+
+      // Se falhou 3 vezes ou mais, redirecionar automaticamente para o checkout
+      if (retryCount >= 2) {
+        console.log("🔄 Muitas tentativas falharam, redirecionando para checkout...")
+
+        trackCustomEvent("PIX_Max_Retries_Reached", {
+          error: errorMessage,
+          order_id: orderId,
+          value: orderValue,
+          retry_count: retryCount + 1,
+        })
+
+        // Aguardar 3 segundos antes de redirecionar
+        setTimeout(() => {
+          if (onBackToCheckout) {
+            onBackToCheckout()
+          } else {
+            // Fallback: recarregar a página para voltar ao checkout
+            window.location.reload()
+          }
+        }, 3000)
+      }
     } finally {
       setLoading(false)
     }
@@ -134,6 +190,8 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
 
   const verifyPayment = async (transactionId: string) => {
     try {
+      console.log("🔍 Verificando pagamento para transactionId:", transactionId)
+
       const response = await fetch("https://api-checkoutinho.up.railway.app/verify", {
         method: "POST",
         headers: {
@@ -145,24 +203,50 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
       })
 
       if (!response.ok) {
-        throw new Error("Erro ao verificar pagamento")
+        console.error("❌ Erro ao verificar pagamento:", response.status)
+        return
       }
 
       const data: PaymentStatus = await response.json()
+      console.log("📋 Status do pagamento:", data)
 
       if (data.status === "completed") {
         setPaymentStatus("completed")
 
-        // Disparar evento de Purchase via UTM (não via Facebook Pixel)
+        // 🎉 PAGAMENTO APROVADO - Disparar todos os eventos
+        console.log("🎉 PAGAMENTO APROVADO!")
+
+        // 1. Facebook Pixel Purchase
+        trackPurchase(orderValue, "BRL")
+
+        // 2. UTM Purchase (seu tracking personalizado)
         trackUtmPurchase(orderValue, utmParams)
 
-        // Redirecionar para página de sucesso com parâmetros UTM após 2 segundos
+        // 3. Custom Event
+        trackCustomEvent("Payment_Completed", {
+          transaction_id: transactionId,
+          order_id: orderId,
+          value: orderValue,
+          customer_name: formData.name,
+          customer_email: formData.email,
+          utm_params: utmParams,
+        })
+
+        // 4. Redirecionar automaticamente
+        let redirectUrl = "https://premiumespiao.netlify.app/?loaded=true"
+        if (utmParams) {
+          redirectUrl += `&${utmParams}`
+        }
+
+        console.log("🔄 Redirecionando para:", redirectUrl)
+
+        // Aguardar 2 segundos antes de redirecionar para garantir que eventos foram enviados
         setTimeout(() => {
-          redirectToSuccess(utmParams)
+          window.location.href = redirectUrl
         }, 2000)
       }
     } catch (err) {
-      console.error("Erro ao verificar pagamento:", err)
+      console.error("❌ Erro ao verificar pagamento:", err)
     }
   }
 
@@ -177,6 +261,27 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
       navigator.clipboard.writeText(pixData.pixCode)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+
+      // Track copy event
+      trackCustomEvent("PIX_Code_Copied", {
+        transaction_id: pixData.transactionId,
+        order_id: orderId,
+      })
+    }
+  }
+
+  const handleBackToCheckout = () => {
+    trackCustomEvent("User_Back_To_Checkout", {
+      order_id: orderId,
+      error_occurred: !!error,
+      retry_count: retryCount,
+    })
+
+    if (onBackToCheckout) {
+      onBackToCheckout()
+    } else {
+      // Fallback: recarregar a página
+      window.location.reload()
     }
   }
 
@@ -188,6 +293,7 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
           <p>Gerando PIX...</p>
+          {retryCount > 0 && <p className="text-sm text-gray-600 mt-2">Tentativa {retryCount + 1} de 3</p>}
         </div>
       </div>
     )
@@ -196,33 +302,39 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 py-6 px-4 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={generatePix}>Tentar Novamente</Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (paymentStatus === "completed") {
-    return (
-      <div className="min-h-screen bg-gray-50 py-6 px-4 flex items-center justify-center">
         <Card className="bg-white max-w-md w-full">
           <CardContent className="p-6 text-center">
-            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-white text-2xl">✓</span>
+            <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white text-2xl">❌</span>
             </div>
-            <h2 className="text-xl font-bold text-green-600 mb-2">Pagamento Confirmado!</h2>
-            <p className="text-gray-600 mb-4">
-              Seu pagamento foi processado com sucesso. Redirecionando para o acesso...
-            </p>
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm text-gray-500">Redirecionando em instantes...</span>
-            </div>
-            <p className="text-sm text-gray-500">
-              Pedido: <span className="font-medium">{orderId}</span>
-            </p>
+            <h2 className="text-xl font-bold text-red-600 mb-2">Erro ao Gerar PIX</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+
+            {retryCount < 3 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500">Tentativa {retryCount} de 3</p>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleBackToCheckout} className="flex-1 bg-transparent">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Voltar ao Checkout
+                  </Button>
+                  <Button onClick={generatePix} className="flex-1">
+                    Tentar Novamente
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-red-600 font-medium">
+                  Muitas tentativas falharam. Redirecionando para o checkout...
+                </p>
+                <div className="animate-spin w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full mx-auto"></div>
+                <Button variant="outline" onClick={handleBackToCheckout} className="w-full bg-transparent">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Voltar ao Checkout Agora
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -239,17 +351,43 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
             </div>
             <h2 className="text-xl font-bold text-red-600 mb-2">PIX Expirado</h2>
             <p className="text-gray-600 mb-4">
-              O tempo para pagamento expirou. Clique no botão abaixo para gerar um novo PIX.
+              O tempo para pagamento expirou. Você pode gerar um novo PIX ou voltar ao checkout.
             </p>
-            <Button
-              onClick={() => {
-                setTimeLeft(15 * 60)
-                setPaymentStatus("pending")
-                generatePix()
-              }}
-            >
-              Gerar Novo PIX
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleBackToCheckout} className="flex-1 bg-transparent">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar ao Checkout
+              </Button>
+              <Button
+                onClick={() => {
+                  setTimeLeft(15 * 60)
+                  setPaymentStatus("pending")
+                  generatePix()
+                }}
+                className="flex-1"
+              >
+                Gerar Novo PIX
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (paymentStatus === "completed") {
+    return (
+      <div className="min-h-screen bg-gray-50 py-6 px-4 flex items-center justify-center">
+        <Card className="bg-white max-w-md w-full">
+          <CardContent className="p-6 text-center">
+            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white text-2xl">✅</span>
+            </div>
+            <h2 className="text-xl font-bold text-green-600 mb-2">Pagamento Aprovado!</h2>
+            <p className="text-gray-600 mb-4">
+              Seu pagamento foi confirmado. Você será redirecionado automaticamente...
+            </p>
+            <div className="animate-spin w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full mx-auto"></div>
           </CardContent>
         </Card>
       </div>
@@ -261,11 +399,26 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
       <div className="max-w-md mx-auto">
         <Card className="bg-white">
           <CardContent className="p-6">
-            {/* Header */}
+            {/* Header com botão de voltar */}
+            <div className="flex items-center justify-between mb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBackToCheckout}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Voltar
+              </Button>
+              <div className="text-center">
+                <p className="text-gray-600 text-sm">
+                  Pedido: <span className="font-medium">{orderId}</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Order Value */}
             <div className="text-center mb-6">
-              <p className="text-gray-600 text-sm mb-1">
-                Pedido: <span className="font-medium">{orderId}</span>
-              </p>
               <div className="flex items-center justify-center gap-2">
                 <span className="text-gray-600 text-sm">Valor:</span>
                 <span className="text-blue-600 font-bold text-lg">R$ {orderValue.toFixed(2).replace(".", ",")}</span>
@@ -364,7 +517,7 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
               </div>
 
               <p className="text-gray-600 text-xs">
-                A compra será confirmada automaticamente após o pagamento e você será redirecionado para o acesso.
+                A compra será confirmada automaticamente após o pagamento e você receberá imediatamente sua compra.
               </p>
             </div>
 
@@ -391,11 +544,23 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
                 <div className="flex gap-2">
                   <span className="font-bold text-blue-600">3.</span>
                   <span>
-                    Após o pagamento, você será automaticamente redirecionado para o acesso. Lembre-se de verificar a
-                    caixa de SPAM do seu email.
+                    Após o pagamento, você receberá por email os dados de acesso à sua compra. Lembre-se de verificar a
+                    caixa de SPAM.
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Debug Info */}
+            <div className="mt-4 p-3 bg-gray-50 rounded text-xs text-gray-600">
+              <p>
+                <strong>📊 Tracking Status:</strong>
+              </p>
+              <p>• Transaction ID: {pixData?.transactionId}</p>
+              <p>• Status: {paymentStatus}</p>
+              <p>• UTM: {utmParams || "Nenhum"}</p>
+              <p>• Order ID: {orderId}</p>
+              <p>• Retry Count: {retryCount}</p>
             </div>
           </CardContent>
         </Card>

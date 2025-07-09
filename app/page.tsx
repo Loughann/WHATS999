@@ -14,9 +14,9 @@ export default function CheckoutPage() {
     hasOrderBump: false,
   })
   const [formData, setFormData] = useState({
-    name: "juliana paes",
-    email: "juju7762@gmail.com",
-    phone: "11980987756",
+    name: "",
+    email: "",
+    phone: "",
     paymentMethod: "pix",
   })
 
@@ -32,6 +32,10 @@ export default function CheckoutPage() {
 
   const handleStep2Complete = () => {
     setCurrentStep(3)
+  }
+
+  const handleBackToCheckout = () => {
+    setCurrentStep(1) // Volta para o formulário de checkout
   }
 
   return (
@@ -55,7 +59,9 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {currentStep === 4 && <PixPayment formData={formData} orderValue={orderData.totalValue} />}
+        {currentStep === 4 && (
+          <PixPayment formData={formData} orderValue={orderData.totalValue} onBackToCheckout={handleBackToCheckout} />
+        )}
       </div>
     </div>
   )

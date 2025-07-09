@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ShoppingCart, ArrowRight, Shield, Lock } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useState, useEffect } from "react"
+import { trackAddToCart, trackCompleteRegistration, trackViewContent } from "@/lib/facebook-pixel"
 
 interface CheckoutFormProps {
   formData: {
@@ -22,10 +23,16 @@ interface CheckoutFormProps {
 export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutFormProps) {
   const [timeLeft, setTimeLeft] = useState(5 * 60) // 5 minutos em segundos
   const [hasOrderBump, setHasOrderBump] = useState(false)
+  const [formCompleted, setFormCompleted] = useState(false)
 
   const basePrice = 14.9
   const orderBumpPrice = 9.9
   const totalPrice = hasOrderBump ? basePrice + orderBumpPrice : basePrice
+
+  useEffect(() => {
+    // Track ViewContent quando componente carrega
+    trackViewContent("Checkout Form", basePrice)
+  }, [])
 
   useEffect(() => {
     if (timeLeft > 0) {
@@ -34,6 +41,22 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
     }
   }, [timeLeft])
 
+  // Track quando order bump é adicionado
+  useEffect(() => {
+    if (hasOrderBump) {
+      trackAddToCart(orderBumpPrice, "BRL")
+    }
+  }, [hasOrderBump])
+
+  // Verificar se formulário está completo
+  useEffect(() => {
+    const isComplete = formData.name && formData.email && formData.phone
+    if (isComplete && !formCompleted) {
+      setFormCompleted(true)
+      trackCompleteRegistration()
+    }
+  }, [formData, formCompleted])
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -41,6 +64,8 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
   }
 
   const handleComplete = () => {
+    // Track final purchase intent
+    trackViewContent("Finalizar Compra", totalPrice)
     onComplete(totalPrice, hasOrderBump)
   }
 
@@ -78,7 +103,7 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
         </CardHeader>
         <CardContent className="p-4 space-y-4">
           <div>
-            <Label htmlFor="name" className="text-sm font-medium text-gray-700">
+            <Label htmlFor="name" className="text-sm font-medium">
               Nome completo
             </Label>
             <Input
@@ -86,12 +111,13 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Digite seu nome completo"
               className="mt-1"
             />
           </div>
 
           <div>
-            <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+            <Label htmlFor="email" className="text-sm font-medium">
               E-mail
             </Label>
             <Input
@@ -99,12 +125,13 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="Digite seu e-mail"
               className="mt-1"
             />
           </div>
 
           <div>
-            <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
+            <Label htmlFor="phone" className="text-sm font-medium">
               Telefone
             </Label>
             <Input
@@ -112,6 +139,7 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               type="tel"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="Digite seu telefone"
               className="mt-1"
             />
           </div>
@@ -140,9 +168,7 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               >
                 <div className="flex items-center gap-3">
                   {/* Ícone PIX oficial */}
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#32D74B" stroke="#32D74B" strokeWidth="1" />
-                  </svg>
+                  <img src="/images/pix-icon.png" alt="PIX" className="w-5 h-5" />
                   <span className="font-medium text-green-700">Pix</span>
                 </div>
               </Button>
@@ -203,7 +229,7 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
                     <div className="flex items-start gap-3 mb-3">
                       <Checkbox
                         id="addon"
-                        className="mt-1 w-4 h-4 border-2 border-gray-300"
+                        className="mt-1 w-4 h-4 border-2 border-green-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
                         checked={hasOrderBump}
                         onCheckedChange={(checked) => setHasOrderBump(checked as boolean)}
                       />
@@ -260,8 +286,12 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
             </CardHeader>
             <CardContent className="p-6 text-center">
               {/* Product Icon - Real Spy Logo */}
-              <div className="w-32 h-32 mx-auto mb-4">
-                <img src="/images/espiao-logo.webp" alt="ESPIÃO 3.0 Logo" className="w-full h-full object-contain" />
+              <div className="w-32 h-32 mx-auto mb-4 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                <img
+                  src="/images/espiao-logo.webp"
+                  alt="Whats Espião Acesso Logo"
+                  className="w-full h-full object-cover"
+                />
               </div>
 
               <h2 className="text-xl font-bold mb-2">Whats Espião Acesso</h2>
