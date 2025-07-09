@@ -78,7 +78,7 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
         </CardHeader>
         <CardContent className="p-4 space-y-4">
           <div>
-            <Label htmlFor="name" className="text-sm font-medium">
+            <Label htmlFor="name" className="text-sm font-medium text-gray-700">
               Nome completo
             </Label>
             <Input
@@ -86,13 +86,12 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Digite seu nome completo"
               className="mt-1"
             />
           </div>
 
           <div>
-            <Label htmlFor="email" className="text-sm font-medium">
+            <Label htmlFor="email" className="text-sm font-medium text-gray-700">
               E-mail
             </Label>
             <Input
@@ -100,13 +99,12 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              placeholder="Digite seu e-mail"
               className="mt-1"
             />
           </div>
 
           <div>
-            <Label htmlFor="phone" className="text-sm font-medium">
+            <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
               Telefone
             </Label>
             <Input
@@ -114,7 +112,6 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               type="tel"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="Digite seu telefone"
               className="mt-1"
             />
           </div>
@@ -143,7 +140,9 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               >
                 <div className="flex items-center gap-3">
                   {/* Ícone PIX oficial */}
-                  <img src="/images/pix-icon.png" alt="PIX" className="w-5 h-5" />
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#32D74B" stroke="#32D74B" strokeWidth="1" />
+                  </svg>
                   <span className="font-medium text-green-700">Pix</span>
                 </div>
               </Button>
@@ -204,7 +203,7 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
                     <div className="flex items-start gap-3 mb-3">
                       <Checkbox
                         id="addon"
-                        className="mt-1 w-4 h-4 border-2 border-green-500 data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500"
+                        className="mt-1 w-4 h-4 border-2 border-gray-300"
                         checked={hasOrderBump}
                         onCheckedChange={(checked) => setHasOrderBump(checked as boolean)}
                       />
@@ -261,12 +260,8 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
             </CardHeader>
             <CardContent className="p-6 text-center">
               {/* Product Icon - Real Spy Logo */}
-              <div className="w-32 h-32 mx-auto mb-4 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
-                <img
-                  src="/images/espiao-logo.webp"
-                  alt="Whats Espião Acesso Logo"
-                  className="w-full h-full object-cover"
-                />
+              <div className="w-32 h-32 mx-auto mb-4">
+                <img src="/images/espiao-logo.webp" alt="ESPIÃO 3.0 Logo" className="w-full h-full object-contain" />
               </div>
 
               <h2 className="text-xl font-bold mb-2">Whats Espião Acesso</h2>

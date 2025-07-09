@@ -38,9 +38,14 @@ const getUrlParams = () => {
   return params.join("&")
 }
 
-// Função para gerar CPF válido (apenas para exemplo - em produção use CPF real do cliente)
-const generateValidCPF = () => {
-  return "11144477735" // CPF válido para testes
+// Função para redirecionar com parâmetros UTM
+const redirectToSuccess = (utmParams: string) => {
+  const baseUrl = "https://premiumespiao.netlify.app/?loaded=true"
+  const finalUrl = utmParams ? `${baseUrl}&${utmParams}` : baseUrl
+
+  if (typeof window !== "undefined") {
+    window.location.href = finalUrl
+  }
 }
 
 export function PixPayment({ formData, orderValue }: PixPaymentProps) {
@@ -87,10 +92,10 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
 
       const payload = {
         amount: Math.round(orderValue * 100), // Converter para centavos
-        description: "Pix",
+        description: "Whats Espião Acesso",
         customer: {
           name: formData.name,
-          document: generateValidCPF(), // CPF válido
+          document: "11111111111", // CPF padrão - você pode adicionar campo no form
           phone: formData.phone,
           email: formData.email,
         },
@@ -102,10 +107,8 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
         utm: utmParams || "checkout-espiao",
       }
 
-      console.log("Gerando PIX com payload:", payload)
-
       const response = await fetch(
-        "https://api-checkoutinho.up.railway.app/1C36QB3oc7mI08Ja0q6HQt61qk1LYou-cor-7zNGVWfG_w8AQnI_Y4dN2AWYDWXRNRTvdYiIBeMC9sHzb2q5hQ",
+        "https://api-checkoutinho.up.railway.app/MYpqLDQvKaLsS48nHu3JTdUboixYawaX8kVBe_PkK1-1YI3VBFhcwDY_Vzk5z7izLWV4VC8sWYWcw54IBszEnw",
         {
           method: "POST",
           headers: {
@@ -116,13 +119,10 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
       )
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error("Erro na resposta da API:", errorText)
-        throw new Error(`Erro ao gerar PIX: ${response.status}`)
+        throw new Error("Erro ao gerar PIX")
       }
 
       const data: PixResponse = await response.json()
-      console.log("PIX gerado com sucesso:", data)
       setPixData(data)
     } catch (err) {
       setError("Erro ao gerar PIX. Tente novamente.")
@@ -134,8 +134,6 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
 
   const verifyPayment = async (transactionId: string) => {
     try {
-      console.log("Verificando pagamento para transactionId:", transactionId)
-
       const response = await fetch("https://api-checkoutinho.up.railway.app/verify", {
         method: "POST",
         headers: {
@@ -147,12 +145,10 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
       })
 
       if (!response.ok) {
-        console.error("Erro ao verificar pagamento:", response.status)
-        return
+        throw new Error("Erro ao verificar pagamento")
       }
 
       const data: PaymentStatus = await response.json()
-      console.log("Status do pagamento:", data)
 
       if (data.status === "completed") {
         setPaymentStatus("completed")
@@ -160,15 +156,10 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
         // Disparar evento de Purchase via UTM (não via Facebook Pixel)
         trackUtmPurchase(orderValue, utmParams)
 
-        // Redirecionar automaticamente para a página de acesso após pagamento aprovado
-        // Construir URL de redirecionamento com parâmetros UTM
-        let redirectUrl = "https://premiumespiao.netlify.app/?loaded=true"
-        if (utmParams) {
-          redirectUrl += `&${utmParams}`
-        }
-
-        console.log("Redirecionando para:", redirectUrl)
-        window.location.href = redirectUrl
+        // Redirecionar para página de sucesso com parâmetros UTM após 2 segundos
+        setTimeout(() => {
+          redirectToSuccess(utmParams)
+        }, 2000)
       }
     } catch (err) {
       console.error("Erro ao verificar pagamento:", err)
@@ -209,6 +200,31 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
           <p className="text-red-600 mb-4">{error}</p>
           <Button onClick={generatePix}>Tentar Novamente</Button>
         </div>
+      </div>
+    )
+  }
+
+  if (paymentStatus === "completed") {
+    return (
+      <div className="min-h-screen bg-gray-50 py-6 px-4 flex items-center justify-center">
+        <Card className="bg-white max-w-md w-full">
+          <CardContent className="p-6 text-center">
+            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white text-2xl">✓</span>
+            </div>
+            <h2 className="text-xl font-bold text-green-600 mb-2">Pagamento Confirmado!</h2>
+            <p className="text-gray-600 mb-4">
+              Seu pagamento foi processado com sucesso. Redirecionando para o acesso...
+            </p>
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm text-gray-500">Redirecionando em instantes...</span>
+            </div>
+            <p className="text-sm text-gray-500">
+              Pedido: <span className="font-medium">{orderId}</span>
+            </p>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -348,7 +364,7 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
               </div>
 
               <p className="text-gray-600 text-xs">
-                A compra será confirmada automaticamente após o pagamento e você receberá imediatamente sua compra.
+                A compra será confirmada automaticamente após o pagamento e você será redirecionado para o acesso.
               </p>
             </div>
 
@@ -375,27 +391,12 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
                 <div className="flex gap-2">
                   <span className="font-bold text-blue-600">3.</span>
                   <span>
-                    Após o pagamento, você receberá por email os dados de acesso à sua compra. Lembre-se de verificar a
-                    caixa de SPAM.
+                    Após o pagamento, você será automaticamente redirecionado para o acesso. Lembre-se de verificar a
+                    caixa de SPAM do seu email.
                   </span>
                 </div>
               </div>
             </div>
-
-            {/* Debug Info (remover em produção) */}
-            {pixData && (
-              <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-gray-600">
-                <p>
-                  <strong>Transaction ID:</strong> {pixData.transactionId}
-                </p>
-                <p>
-                  <strong>Status:</strong> {paymentStatus}
-                </p>
-                <p>
-                  <strong>UTM:</strong> {utmParams || "Nenhum"}
-                </p>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
