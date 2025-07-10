@@ -8,7 +8,6 @@ declare global {
 export const trackEvent = (eventName: string, parameters?: any) => {
   if (typeof window !== "undefined" && window.fbq) {
     window.fbq("track", eventName, parameters)
-    console.log(`📊 Facebook Pixel Event: ${eventName}`, parameters)
   }
 }
 
@@ -30,6 +29,7 @@ export const trackAddToCart = (value: number, currency = "BRL") => {
   })
 }
 
+// Função simples para tracking de purchase
 export const trackPurchase = (value: number, currency = "BRL") => {
   trackEvent("Purchase", {
     value: value,
@@ -39,71 +39,28 @@ export const trackPurchase = (value: number, currency = "BRL") => {
   })
 }
 
-export const trackViewContent = (contentName: string, value?: number) => {
-  trackEvent("ViewContent", {
-    content_name: contentName,
-    content_type: "product",
+export const trackUtmPurchase = (value: number, utmParams: string, currency = "BRL") => {
+  trackEvent("Purchase", {
     value: value,
-    currency: "BRL",
+    currency: currency,
+    content_type: "product",
+    content_name: "Whats Espião Acesso",
+    utm_params: utmParams,
   })
-}
 
-export const trackCompleteRegistration = () => {
-  trackEvent("CompleteRegistration", {
-    content_name: "Whats Espião Acesso - Dados Preenchidos",
-  })
-}
-
-// Função para tracking via UTM (não usa Facebook Pixel)
-export const trackUtmPurchase = (value: number, utmParams: string) => {
+  // Enviar evento para a rota /api/track-purchase
   if (typeof window !== "undefined") {
-    console.log("🎯 UTM Purchase Event:", {
-      value: value,
-      currency: "BRL",
-      utm_params: utmParams,
-      event: "purchase",
-      timestamp: new Date().toISOString(),
-    })
+    const timestamp = new Date().toISOString()
 
-    // Envio para endpoint personalizado
-    fetch("/api/track-purchase", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        event: "purchase",
+    navigator.sendBeacon(
+      "/api/track-purchase",
+      JSON.stringify({
+        event: "Purchase",
         value: value,
-        currency: "BRL",
+        currency: currency,
         utm_params: utmParams,
-        timestamp: new Date().toISOString(),
+        timestamp: timestamp,
       }),
-    }).catch((error) => {
-      console.error("❌ Erro ao enviar evento UTM:", error)
-    })
-  }
-}
-
-// Função para tracking de eventos customizados
-export const trackCustomEvent = (eventName: string, data: any) => {
-  if (typeof window !== "undefined") {
-    console.log(`🔥 Custom Event: ${eventName}`, data)
-
-    // Enviar para seu endpoint de analytics
-    fetch("/api/track-custom", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        event: eventName,
-        data: data,
-        timestamp: new Date().toISOString(),
-        url: window.location.href,
-        utm_params: new URLSearchParams(window.location.search).toString(),
-      }),
-    }).catch((error) => {
-      console.error("❌ Erro ao enviar evento customizado:", error)
-    })
+    )
   }
 }

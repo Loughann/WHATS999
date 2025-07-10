@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { CheckoutForm } from "@/components/checkout-form"
-import { CheckoutOffer } from "@/components/checkout-offer"
-import { CheckoutSummary } from "@/components/checkout-summary"
 import { PixPayment } from "@/components/pix-payment"
 import { trackInitiateCheckout } from "@/lib/facebook-pixel"
 
@@ -14,9 +12,9 @@ export default function CheckoutPage() {
     hasOrderBump: false,
   })
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
+    name: "juliana paes",
+    email: "juju7762@gmail.com",
+    phone: "11980987756",
     paymentMethod: "pix",
   })
 
@@ -27,15 +25,7 @@ export default function CheckoutPage() {
 
   const handleStep1Complete = (totalValue: number, hasOrderBump: boolean) => {
     setOrderData({ totalValue, hasOrderBump })
-    setCurrentStep(4) // Vai direto para a página de pagamento PIX
-  }
-
-  const handleStep2Complete = () => {
-    setCurrentStep(3)
-  }
-
-  const handleBackToCheckout = () => {
-    setCurrentStep(1) // Volta para o formulário de checkout
+    setCurrentStep(2) // Vai para a página de pagamento PIX
   }
 
   return (
@@ -47,21 +37,7 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {currentStep === 2 && (
-          <div className="py-4 px-4">
-            <CheckoutOffer onComplete={handleStep2Complete} />
-          </div>
-        )}
-
-        {currentStep === 3 && (
-          <div className="py-4 px-4">
-            <CheckoutSummary />
-          </div>
-        )}
-
-        {currentStep === 4 && (
-          <PixPayment formData={formData} orderValue={orderData.totalValue} onBackToCheckout={handleBackToCheckout} />
-        )}
+        {currentStep === 2 && <PixPayment formData={formData} orderValue={orderData.totalValue} />}
       </div>
     </div>
   )
