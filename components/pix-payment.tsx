@@ -13,6 +13,7 @@ interface PixPaymentProps {
     phone: string
   }
   orderValue: number
+  hasFreeBonus?: boolean
 }
 
 interface PixResponse {
@@ -53,7 +54,7 @@ const redirectToSuccess = (utmParams: string) => {
   }
 }
 
-export function PixPayment({ formData, orderValue }: PixPaymentProps) {
+export function PixPayment({ formData, orderValue, hasFreeBonus = false }: PixPaymentProps) {
   const [timeLeft, setTimeLeft] = useState(5 * 60) // 5 minutos
   const [copied, setCopied] = useState(false)
   const [pixData, setPixData] = useState<PixResponse | null>(null)
@@ -291,6 +292,16 @@ export function PixPayment({ formData, orderValue }: PixPaymentProps) {
             <p className="text-gray-600 mb-4">
               Seu pagamento foi processado com sucesso. Redirecionando para o acesso...
             </p>
+
+            {hasFreeBonus && (
+              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-4">
+                <div className="flex items-center justify-center gap-2 text-yellow-700 font-bold text-sm">
+                  <span>🎁</span>
+                  <span>BÔNUS ATIVADO: Resultado Instantâneo + Localização em Tempo Real!</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-center gap-2 mb-4">
               <Loader2 className="w-4 h-4 animate-spin" />
               <span className="text-sm text-gray-500">Redirecionando em instantes...</span>

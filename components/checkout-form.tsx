@@ -16,12 +16,13 @@ interface CheckoutFormProps {
     paymentMethod: string
   }
   setFormData: (data: any) => void
-  onComplete: (totalValue: number, hasOrderBump: boolean) => void
+  onComplete: (totalValue: number, hasOrderBump: boolean, hasFreeBonus: boolean) => void
 }
 
 export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutFormProps) {
   const [timeLeft, setTimeLeft] = useState(5 * 60) // 5 minutos em segundos
   const [hasOrderBump, setHasOrderBump] = useState(false)
+  const [hasFreeBonus, setHasFreeBonus] = useState(false)
 
   const basePrice = 14.9
   const orderBumpPrice = 9.9
@@ -41,7 +42,7 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
   }
 
   const handleComplete = () => {
-    onComplete(totalPrice, hasOrderBump)
+    onComplete(totalPrice, hasOrderBump, hasFreeBonus)
   }
 
   return (
@@ -203,12 +204,12 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
                     <div className="flex items-start gap-3 mb-3">
                       <Checkbox
                         id="addon"
-                        className="mt-1 w-4 h-4 border-2 border-gray-300"
+                        className="mt-1 w-4 h-4 border-2 border-green-600 data-[state=checked]:bg-green-500 data-[state=checked]:text-white transition-transform duration-200 ease-out data-[state=checked]:scale-110"
                         checked={hasOrderBump}
                         onCheckedChange={(checked) => setHasOrderBump(checked as boolean)}
                       />
                       <div>
-                        <div className="text-sm font-medium text-blue-600 mb-1">ADQUIRIR TAMBÉM ACESSO TOTAL</div>
+                        <div className="text-sm text-blue-600 mb-1 font-bold">ADQUIRIR TAMBÉM ACESSO TOTAL</div>
                         <div className="text-green-600 font-bold">À VISTA POR R$ 9,90</div>
                       </div>
                     </div>
@@ -236,6 +237,60 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               </div>
             </CardContent>
           </Card>
+
+          {/* Free Bonus Section */}
+          <div className="bg-white border-2 rounded-lg p-4 border-gray-200">
+            <div className="flex items-start gap-4">
+              {/* Lock Icon - Same size as Lock icon */}
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <Lock className="w-8 h-8 text-white" />
+              </div>
+
+              {/* Content - Same structure as paid order bump */}
+              <div className="flex-1">
+                <div className="flex items-start gap-3 mb-3">
+                  <Checkbox
+                    id="freeBonus"
+                    className="mt-1 w-4 h-4 border-2 border-green-600 data-[state=checked]:bg-green-500 data-[state=checked]:text-white transition-transform duration-200 ease-out data-[state=checked]:scale-110"
+                    checked={hasFreeBonus}
+                    onCheckedChange={(checked) => setHasFreeBonus(checked as boolean)}
+                  />
+                  <div>
+                    <div className="text-sm mb-1 font-bold text-blue-600">SELECIONE PARA ATIVAR SEU BÔNUS</div>
+                    <div className="text-green-600 font-bold text-base">BÔNUS GRATUITO </div>
+                  </div>
+                </div>
+
+                {/* Features - Same structure as paid order bump */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="text-orange-500 text-lg">⚡</span>
+                    <div>
+                      <span className="font-bold text-red-600">RESULTADO INSTANTÂNEO:&nbsp;</span>
+                      <span className="text-gray-700">Veja os resultados em 3 MINUTOS, sem esperar!</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-500 text-lg">📍</span>
+                    <div>
+                      <span className="font-bold text-red-600">LOCALIZAÇÃO EM TEMPO REAL:&nbsp;</span>
+                      <span className="text-gray-700">Saiba exatamente onde a pessoa está agora!</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 border border-red-200 rounded p-2 mt-3">
+                    <div className="flex items-center gap-2 text-red-700 text-xs font-medium">
+                      <span>⏰</span>
+                      <span>
+                        Disponível apenas para pagamentos realizados nos próximos {formatTime(timeLeft)} minutos!
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <Button
             className="w-full bg-green-500 hover:bg-green-600 text-white h-12 font-bold flex items-center justify-center gap-2"
@@ -285,6 +340,13 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
                     <div className="flex justify-between">
                       <span>Acesso Total</span>
                       <span className="text-green-600 font-bold">R$ {orderBumpPrice.toFixed(2).replace(".", ",")}</span>
+                    </div>
+                  )}
+
+                  {hasFreeBonus && (
+                    <div className="flex justify-between">
+                      <span>Bônus Gratuito</span>
+                      <span className="text-green-600 font-bold">R$ 0,00</span>
                     </div>
                   )}
                 </div>

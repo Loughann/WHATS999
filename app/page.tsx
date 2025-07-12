@@ -10,6 +10,7 @@ export default function CheckoutPage() {
   const [orderData, setOrderData] = useState({
     totalValue: 14.9,
     hasOrderBump: false,
+    hasFreeBonus: false,
   })
   const [formData, setFormData] = useState({
     name: "juliana paes",
@@ -23,8 +24,8 @@ export default function CheckoutPage() {
     trackInitiateCheckout(14.9)
   }, [])
 
-  const handleStep1Complete = (totalValue: number, hasOrderBump: boolean) => {
-    setOrderData({ totalValue, hasOrderBump })
+  const handleStep1Complete = (totalValue: number, hasOrderBump: boolean, hasFreeBonus: boolean) => {
+    setOrderData({ totalValue, hasOrderBump, hasFreeBonus })
     setCurrentStep(2) // Vai para a página de pagamento PIX
   }
 
@@ -37,7 +38,9 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {currentStep === 2 && <PixPayment formData={formData} orderValue={orderData.totalValue} />}
+        {currentStep === 2 && (
+          <PixPayment formData={formData} orderValue={orderData.totalValue} hasFreeBonus={orderData.hasFreeBonus} />
+        )}
       </div>
     </div>
   )
