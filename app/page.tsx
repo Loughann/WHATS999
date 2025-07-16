@@ -11,6 +11,7 @@ export default function CheckoutPage() {
     totalValue: 14.9,
     hasOrderBump: false,
     hasFreeBonus: false,
+    hasSecondOrderBump: false,
   })
   const [formData, setFormData] = useState({
     name: "juliana paes",
@@ -24,8 +25,13 @@ export default function CheckoutPage() {
     trackInitiateCheckout(14.9)
   }, [])
 
-  const handleStep1Complete = (totalValue: number, hasOrderBump: boolean, hasFreeBonus: boolean) => {
-    setOrderData({ totalValue, hasOrderBump, hasFreeBonus })
+  const handleStep1Complete = (
+    totalValue: number,
+    hasOrderBump: boolean,
+    hasFreeBonus: boolean,
+    hasSecondOrderBump: boolean,
+  ) => {
+    setOrderData({ totalValue, hasOrderBump, hasFreeBonus, hasSecondOrderBump })
     setCurrentStep(2) // Vai para a página de pagamento PIX
   }
 

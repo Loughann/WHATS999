@@ -16,17 +16,20 @@ interface CheckoutFormProps {
     paymentMethod: string
   }
   setFormData: (data: any) => void
-  onComplete: (totalValue: number, hasOrderBump: boolean, hasFreeBonus: boolean) => void
+  onComplete: (totalValue: number, hasOrderBump: boolean, hasFreeBonus: boolean, hasSecondOrderBump: boolean) => void
 }
 
 export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutFormProps) {
   const [timeLeft, setTimeLeft] = useState(5 * 60) // 5 minutos em segundos
   const [hasOrderBump, setHasOrderBump] = useState(false)
   const [hasFreeBonus, setHasFreeBonus] = useState(false)
+  const [hasSecondOrderBump, setHasSecondOrderBump] = useState(false)
 
   const basePrice = 14.9
   const orderBumpPrice = 9.9
-  const totalPrice = hasOrderBump ? basePrice + orderBumpPrice : basePrice
+  const secondOrderBumpPrice = 14.9
+  const totalPrice =
+    (hasOrderBump ? basePrice + orderBumpPrice : basePrice) + (hasSecondOrderBump ? secondOrderBumpPrice : 0)
 
   useEffect(() => {
     if (timeLeft > 0) {
@@ -42,7 +45,7 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
   }
 
   const handleComplete = () => {
-    onComplete(totalPrice, hasOrderBump, hasFreeBonus)
+    onComplete(totalPrice, hasOrderBump, hasFreeBonus, hasSecondOrderBump)
   }
 
   return (
@@ -169,74 +172,127 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               <p>O PIX foi desenvolvido pelo Banco Central para facilitar suas compras e é 100% seguro.</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Step 3 - Offer */}
-          <Card>
-            <CardHeader className="bg-gray-400 text-white p-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-white text-gray-400 rounded-full flex items-center justify-center font-bold">
-                  3
-                </div>
-                <span className="font-extrabold text-xl">COMPRE JUNTO</span>
+      {/* Step 3 - Offer */}
+      <Card>
+        <CardHeader className="bg-gray-400 text-white p-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-white text-gray-400 rounded-full flex items-center justify-center font-bold">
+              3
+            </div>
+            <span className="font-extrabold text-xl">COMPRE JUNTO</span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 space-y-4">
+          {/* Statistics */}
+          <div className="bg-gray-50 p-3 rounded">
+            <p className="text-xs">
+              <span className="font-bold text-black">68% das pessoas</span>{" "}
+              <span className="text-black font-medium">que compraram</span>{" "}
+              <span className="font-bold text-black">Whats Espião Acesso</span>{" "}
+              <span className="text-black font-medium">também se interessaram por:</span>
+            </p>
+          </div>
+
+          {/* Main Offer */}
+          <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
+            <div className="flex items-start gap-4">
+              {/* Green Lock Icon */}
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <Lock className="w-8 h-8 text-white" />
               </div>
-            </CardHeader>
-            <CardContent className="p-4 space-y-4">
-              {/* Statistics */}
-              <div className="bg-gray-50 p-3 rounded">
-                <p className="text-xs">
-                  <span className="font-bold text-black">68% das pessoas</span>{" "}
-                  <span className="text-black font-medium">que compraram</span>{" "}
-                  <span className="font-bold text-black">Whats Espião Acesso</span>{" "}
-                  <span className="text-black font-medium">também se interessaram por:</span>
-                </p>
-              </div>
 
-              {/* Main Offer */}
-              <div className="bg-white border-2 border-gray-200 rounded-lg p-4">
-                <div className="flex items-start gap-4">
-                  {/* Green Lock Icon */}
-                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Lock className="w-8 h-8 text-white" />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1">
-                    <div className="flex items-start gap-3 mb-3">
-                      <Checkbox
-                        id="addon"
-                        className="mt-1 w-4 h-4 border-2 border-green-600 data-[state=checked]:bg-green-500 data-[state=checked]:text-white transition-transform duration-200 ease-out data-[state=checked]:scale-110"
-                        checked={hasOrderBump}
-                        onCheckedChange={(checked) => setHasOrderBump(checked as boolean)}
-                      />
-                      <div>
-                        <div className="text-sm text-blue-600 mb-1 font-bold">ADQUIRIR TAMBÉM ACESSO TOTAL</div>
-                        <div className="text-green-600 font-bold">À VISTA POR R$ 9,90</div>
-                      </div>
-                    </div>
-
-                    {/* Features */}
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-start gap-2">
-                        <span className="text-red-600">🔓</span>
-                        <span className="text-red-600 font-bold leading-tight">
-                          DESBLOQUEIE TUDO! ACESSO TOTAL ao WhatsApp, Facebook, Telegram, Tiktok, e até à localização em
-                          tempo real!
-                        </span>
-                      </div>
-
-                      <div className="flex items-start gap-2">
-                        <span className="text-green-600">✅</span>
-                        <span className="text-green-600 font-medium leading-tight">
-                          Além de garantir Acesso VITALÍCIO com direito a TODAS as atualizações do APP para usar quantas
-                          vezes quiser!
-                        </span>
-                      </div>
-                    </div>
+              {/* Content */}
+              <div className="flex-1">
+                <div className="flex items-start gap-3 mb-3">
+                  <Checkbox
+                    id="addon"
+                    className="mt-1 w-4 h-4 border-2 border-green-600 data-[state=checked]:bg-green-500 data-[state=checked]:text-white transition-transform duration-200 ease-out data-[state=checked]:scale-110"
+                    checked={hasOrderBump}
+                    onCheckedChange={(checked) => setHasOrderBump(checked as boolean)}
+                  />
+                  <div>
+                    <div className="text-sm text-blue-600 mb-1 font-bold">ADQUIRIR TAMBÉM ACESSO TOTAL</div>
+                    <div className="text-green-600 font-bold">À VISTA POR R$ 9,90</div>
                   </div>
                 </div>
+
+                {/* Features */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-600">🔓</span>
+                    <span className="text-red-600 font-bold leading-tight">
+                      DESBLOQUEIE TUDO! ACESSO TOTAL ao WhatsApp, Facebook, Telegram, Tiktok, e até à localização em
+                      tempo real!
+                    </span>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-green-600">✅</span>
+                    <span className="text-green-600 font-medium leading-tight">
+                      Além de garantir Acesso VITALÍCIO com direito a TODAS as atualizações do APP para usar quantas
+                      vezes quiser!
+                    </span>
+                  </div>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+
+          {/* Second Order Bump - 2 Investigações */}
+          <div className="bg-white border-2 rounded-lg p-4 border-gray-200">
+            <div className="flex items-start gap-4">
+              {/* Lock Icon - Same size as Lock icon */}
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <Lock className="w-8 h-8 text-white" />
+              </div>
+
+              {/* Content - Same structure as paid order bump */}
+              <div className="flex-1">
+                <div className="flex items-start gap-3 mb-3">
+                  <Checkbox
+                    id="secondAddon"
+                    className="mt-1 w-4 h-4 border-2 border-green-600 data-[state=checked]:bg-green-500 data-[state=checked]:text-white transition-transform duration-200 ease-out data-[state=checked]:scale-110"
+                    checked={hasSecondOrderBump}
+                    onCheckedChange={(checked) => setHasSecondOrderBump(checked as boolean)}
+                  />
+                  <div>
+                    <div className="text-sm mb-1 font-bold text-blue-600">2 INVESTIGAÇÕES PELO PREÇO DE 1</div>
+                    <div className="text-green-600 font-bold text-base">À VISTA POR R$ 14,90</div>
+                  </div>
+                </div>
+
+                {/* Features - Similar structure to paid order bump */}
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-600 text-lg">📸</span>
+                    <span className="text-gray-700">
+                      <span className="font-bold text-red-600">FOTOS ATUAIS E ANTIGAS:</span> Acesse o histórico
+                      completo de imagens.
+                    </span>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-purple-600 text-lg">💬</span>
+                    <span className="text-gray-700">
+                      <span className="font-bold text-red-600">MENSAGENS DE HOJE E APAGADAS:</span> Recupere conversas
+                      importantes, mesmo as deletadas.
+                    </span>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <span className="text-orange-600 text-lg">🕵️‍♀️</span>
+                    <span className="text-gray-700">
+                      <span className="font-bold text-red-600">DESCUBRA MAIS:</span> Investigue outra pessoa ou
+                      aprofunde-se na mesma investigação!
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Free Bonus Section */}
           <div className="bg-white border-2 rounded-lg p-4 border-gray-200">
@@ -293,7 +349,7 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
           </div>
 
           <Button
-            className="w-full bg-green-500 hover:bg-green-600 text-white h-12 font-bold flex items-center justify-center gap-2"
+            className="w-full bg-green-500 hover:bg-green-600 text-white h-12 font-bold flex items-center justify-center gap-2 text-lg"
             onClick={handleComplete}
           >
             Finalizar Compra <ArrowRight className="w-5 h-5" />
@@ -347,6 +403,14 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
                     <div className="flex justify-between">
                       <span>Bônus Gratuito</span>
                       <span className="text-green-600 font-bold">R$ 0,00</span>
+                    </div>
+                  )}
+                  {hasSecondOrderBump && (
+                    <div className="flex justify-between">
+                      <span>2 Investigações</span>
+                      <span className="text-green-600 font-bold">
+                        R$ {secondOrderBumpPrice.toFixed(2).replace(".", ",")}
+                      </span>
                     </div>
                   )}
                 </div>
