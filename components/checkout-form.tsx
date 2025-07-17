@@ -28,8 +28,11 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
   const basePrice = 14.9
   const orderBumpPrice = 9.9
   const secondOrderBumpPrice = 14.9
+  const freeBonusPrice = 19.9 // Adicione o preço do bônus gratuito
   const totalPrice =
-    (hasOrderBump ? basePrice + orderBumpPrice : basePrice) + (hasSecondOrderBump ? secondOrderBumpPrice : 0)
+    (hasOrderBump ? basePrice + orderBumpPrice : basePrice) +
+    (hasSecondOrderBump ? secondOrderBumpPrice : 0) +
+    (hasFreeBonus ? freeBonusPrice : 0) // Inclua o bônus gratuito na soma
 
   useEffect(() => {
     if (timeLeft > 0) {
@@ -312,26 +315,30 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
                     onCheckedChange={(checked) => setHasFreeBonus(checked as boolean)}
                   />
                   <div>
-                    <div className="text-sm mb-1 font-bold text-blue-600">SELECIONE PARA ATIVAR SEU BÔNUS</div>
-                    <div className="text-green-600 font-bold text-base">BÔNUS GRATUITO </div>
+                    <div className="text-sm mb-1 font-bold text-blue-600">INVESTIGAÇÃO PESSOAL AVANÇADA</div>
+                    <div className="text-green-600 font-bold text-base">À VISTA POR R$19,90</div>
                   </div>
                 </div>
 
                 {/* Features - Same structure as paid order bump */}
                 <div className="space-y-2 text-sm">
                   <div className="flex items-start gap-2">
-                    <span className="text-orange-500 text-lg">⚡</span>
+                    <span className="text-orange-500 text-lg">🔍</span>
                     <div>
-                      <span className="font-bold text-red-600">RESULTADO INSTANTÂNEO:&nbsp;</span>
-                      <span className="text-gray-700">Veja os resultados em 3 MINUTOS, sem esperar!</span>
+                      <span className="font-bold text-red-600">MARCAR ENCONTRO:&nbsp;</span>
+                      <span className="text-gray-700">
+                        Tenha um detetive pessoal mandando audios, fotos e textos personalizados para testar ela(e)!
+                      </span>
                     </div>
                   </div>
 
                   <div className="flex items-start gap-2">
-                    <span className="text-red-500 text-lg">📍</span>
+                    <span className="text-red-500 text-lg">✅</span>
                     <div>
-                      <span className="font-bold text-red-600">LOCALIZAÇÃO EM TEMPO REAL:&nbsp;</span>
-                      <span className="text-gray-700">Saiba exatamente onde a pessoa está agora!</span>
+                      <span className="font-bold text-red-600">PROVAS REAIS DE TUDO:&nbsp;</span>
+                      <span className="text-gray-700">
+                        Teste a fidelidade dela(e) em tempo real com todas conversas e fotos!
+                      </span>
                     </div>
                   </div>
 
@@ -401,8 +408,8 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
 
                   {hasFreeBonus && (
                     <div className="flex justify-between">
-                      <span>Bônus Gratuito</span>
-                      <span className="text-green-600 font-bold">R$ 0,00</span>
+                      <span>Investigação avançada</span>
+                      <span className="text-green-600 font-bold">R$ 19,90</span>
                     </div>
                   )}
                   {hasSecondOrderBump && (
@@ -419,7 +426,7 @@ export function CheckoutForm({ formData, setFormData, onComplete }: CheckoutForm
               {/* Support Email */}
               <div className="text-center text-sm text-gray-600 mb-4">
                 <p>
-                  <span className="font-medium">E-MAIL DE SUPORTE:</span> whatsdetect.app@gmail.com
+                  <span className="font-medium">E-MAIL DE SUPORTE:</span> whatsespiao.app@gmail.com
                 </p>
               </div>
 
